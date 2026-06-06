@@ -14,6 +14,8 @@ let eventos = [];
 let campanas = [];
 let soyAdmin = false;
 let pendingAction = null; // 'robo' | 'duelo' cuando se está eligiendo objetivo
+let retos = [];
+let eligiendoReto = false; // modo "elegir rival para retar" en la card Cara a Cara
 
 boot();
 
@@ -110,15 +112,17 @@ async function afterLogin() {
 }
 
 async function loadData() {
-  const [{ data: cl, error }, { data: ev }, { data: camps }] = await Promise.all([
+  const [{ data: cl, error }, { data: ev }, { data: camps }, { data: rts }] = await Promise.all([
     sb.from("clasificacion").select("*"),
     sb.from("eventos").select("*").order("creado_en", { ascending: false }).limit(12),
     sb.from("campanas").select("*"),
+    sb.from("retos").select("*"),
   ]);
   if (error) { console.error(error); return; }
   clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
   eventos = ev || [];
   campanas = camps || [];
+  retos = rts || [];
   renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
@@ -178,6 +182,7 @@ function noticiaTexto(e) {
     case "fallido": return `🛡️ El escudo de <b>${O}</b> repelió a ${A} — quedó debilitado (−${n})`;
     case "escudo": return `🛡️ <b>${A}</b> reforzó sus defensas`;
     case "sprint": return `⚡ <b>${A}</b> apretó un sprint (+${n})`;
+    case "reto": return `🤺 ${e.msg || "Cara a Cara"}`;
     case "duelo":
       if ((e.msg || "").includes("Ganaste")) return `⚔️ <b>${A}</b> ganó un duelo a ${O} (+${n})`;
       if ((e.msg || "").includes("Perdiste")) return `⚔️ <b>${O}</b> ganó un duelo a ${A} (+${n})`;
@@ -243,6 +248,116 @@ function renderRank(mode = "general") {
 }
 const COSTE = { escudo: 2, sprint: 3, robo: 3, duelo: 2 };
 
+// ---------- Cara a Cara (retos 1v1) ----------
+async function enviarReto(retado, apuesta) {
+  const { data, error } = await sb.rpc("retar", { p_retado: retado, p_apuesta: apuesta });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  eligiendoReto = false;
+  await loadData();
+  if (data && data.msg) flash(data.msg);
+}
+
+async function responderReto(id, acepta) {
+  const { data, error } = await sb.rpc("responder_reto", { p_id: id, p_acepta: acepta });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  await loadData();
+  if (data && data.msg) flash(data.msg);
+}
+
+function caraACaraHTML(m) {
+  const now = Date.now();
+  const mios = retos.filter((r) => r.retador === myAtletaKey || r.retado === myAtletaKey);
+  const recibidos = mios.filter((r) => r.retado === myAtletaKey && r.estado === "pendiente");
+  const enviados = mios.filter((r) => r.retador === myAtletaKey && r.estado === "pendiente");
+  const activo = mios.find((r) => r.estado === "aceptado" && r.fin && new Date(r.fin).getTime() > now);
+
+  let body = "";
+
+  // Reto activo
+  if (activo) {
+    const soyRetador = activo.retador === myAtletaKey;
+    const rival = soyRetador ? activo.retado : activo.retador;
+    const miMarcador = Math.round((soyRetador ? activo.marcador_retador : activo.marcador_retado) || 0);
+    const suMarcador = Math.round((soyRetador ? activo.marcador_retado : activo.marcador_retador) || 0);
+    body += `<div class="card" style="margin:0 0 12px;border:1px solid var(--orange)">
+      <div class="nm" style="font-size:16px">⚔️ Cara a Cara vs ${nameOf(rival)}</div>
+      <div class="stat-grid" style="margin-top:10px">
+        <div class="stat"><div class="v orange">${fmt(miMarcador)}</div><div class="k">Tú</div></div>
+        <div class="stat"><div class="v">${fmt(suMarcador)}</div><div class="k">${nameOf(rival)}</div></div>
+      </div>
+      <p class="hint" style="margin:10px 0 0">Apuesta ${Math.round(activo.apuesta || 0)} pts · termina ${fechaCorta(activo.fin)}</p>
+    </div>`;
+  }
+
+  // Retos recibidos pendientes
+  recibidos.forEach((r) => {
+    body += `<div class="row" style="align-items:center">
+      <div class="who"><div class="nm">${nameOf(r.retador)} te reta</div>
+        <div class="sub"><span>apuesta ${Math.round(r.apuesta || 0)} pts</span></div></div>
+      <div class="actions" style="margin:0">
+        <button class="btn" data-acc-reto="${r.id}" style="width:auto;margin:0;padding:8px 12px">Aceptar</button>
+        <button class="btn ghost" data-rej-reto="${r.id}" style="width:auto;margin:0;padding:8px 12px">Rechazar</button>
+      </div>
+    </div>`;
+  });
+
+  // Enviados pendientes
+  enviados.forEach((r) => {
+    body += `<p class="hint" style="margin:8px 0 0">⏳ Esperando que <b>${nameOf(r.retado)}</b> acepte (apuesta ${Math.round(r.apuesta || 0)} pts).</p>`;
+  });
+
+  // Selector para retar
+  if (eligiendoReto) {
+    const rivals = clasificacion.filter((a) => a.atleta_key !== myAtletaKey);
+    const inputStyle = "width:100%;padding:11px;border-radius:12px;font-size:15px;background:var(--navy-2);color:#fff;border:1px solid rgba(255,255,255,.14);margin:6px 0";
+    body += `<div style="margin-top:12px">
+      <p class="hint" style="margin:0">¿A quién quieres retar?</p>
+      <select id="retoTarget" style="${inputStyle}">
+        <option value="">— elige rival —</option>
+        ${rivals.map((r) => `<option value="${r.atleta_key}">${r.nombre}</option>`).join("")}
+      </select>
+      <p class="hint" style="margin:0">Apuesta (10-100)</p>
+      <input id="retoApuesta" type="number" min="10" max="100" value="50" style="${inputStyle}" />
+      <div class="actions" style="margin-top:6px">
+        <button class="btn" id="confirmReto">Enviar reto</button>
+        <button class="btn ghost" id="cancelReto">Cancelar</button>
+      </div>
+    </div>`;
+  } else if (!activo) {
+    body += `<div class="actions" style="margin-top:12px">
+      <button class="btn" id="abrirReto">Retar a alguien</button>
+    </div>`;
+  }
+
+  if (!body) {
+    body = `<p class="hint">Nadie te ha retado todavía. ¡Lánzate y reta a un rival cara a cara! ⚔️</p>`;
+  }
+
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">⚔️ Cara a Cara</h2>
+    ${body}
+  </div>`;
+}
+
+function wireCaraACara() {
+  $("#abrirReto")?.addEventListener("click", () => { eligiendoReto = true; renderBase(); });
+  $("#cancelReto")?.addEventListener("click", () => { eligiendoReto = false; renderBase(); });
+  $("#confirmReto")?.addEventListener("click", () => {
+    const sel = $("#retoTarget").value;
+    if (!sel) { alert("Elige un rival."); return; }
+    let n = Number($("#retoApuesta").value);
+    if (!n || n < 10) n = 10;
+    if (n > 100) n = 100;
+    enviarReto(sel, n);
+  });
+  $$("button[data-acc-reto]").forEach((b) =>
+    b.addEventListener("click", () => responderReto(b.dataset.accReto, true)));
+  $$("button[data-rej-reto]").forEach((b) =>
+    b.addEventListener("click", () => responderReto(b.dataset.rejReto, false)));
+}
+
 function renderBase() {
   const m = me();
   const c = $("#baseContent");
@@ -301,10 +416,12 @@ function renderBase() {
     <div class="card">
       <h2 class="section" style="margin-top:0">Acciones</h2>
       ${acciones}
-    </div>`;
+    </div>
+    ${caraACaraHTML(m)}`;
 
   // listeners
   $$(".act[data-acc]").forEach((b) => b.addEventListener("click", () => onAccion(b.dataset.acc)));
+  wireCaraACara();
   const conf = $("#confirmAcc"), canc = $("#cancelAcc");
   if (conf) conf.addEventListener("click", () => {
     const t = $("#target").value;
