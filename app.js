@@ -125,7 +125,8 @@ function noticiaTexto(e) {
   const n = Math.round(e.amount || 0);
   switch (e.tipo) {
     case "robo": return `🥷 <b>${A}</b> robó <b>${n}</b> pts a ${O}`;
-    case "escudo": return `🛡️ <b>${A}</b> levantó un escudo`;
+    case "fallido": return `🛡️ El escudo de <b>${O}</b> repelió a ${A} — quedó debilitado (−${n})`;
+    case "escudo": return `🛡️ <b>${A}</b> reforzó sus defensas`;
     case "sprint": return `⚡ <b>${A}</b> apretó un sprint (+${n})`;
     case "duelo":
       if ((e.msg || "").includes("Ganaste")) return `⚔️ <b>${A}</b> ganó un duelo a ${O} (+${n})`;
@@ -208,7 +209,9 @@ function renderBase() {
     const verbo = pendingAction === "robo" ? "robar 🥷" : "retar a duelo ⚔️";
     acciones = `<p class="hint">¿A quién quieres ${verbo}? (rivales de tu división)</p>
       <select id="target"><option value="">— elige rival —</option>
-        ${rivals.map((r) => `<option value="${r.atleta_key}">${r.nombre} · ${fmt(r.pl_semana)} pts esta semana</option>`).join("")}</select>
+        ${rivals.map((r) => { const p = r.escudo_hasta && new Date(r.escudo_hasta) > new Date();
+          return `<option value="${r.atleta_key}">${p ? "🛡️ " : ""}${r.nombre} · ${fmt(r.pl_semana)} pts</option>`; }).join("")}</select>
+      ${pendingAction === "robo" ? '<p class="hint" style="margin-top:8px">⚠️ Si el rival tiene 🛡️ escudo, el robo fallará y quedarás debilitado. Elige bien.</p>' : ""}
       <div class="actions" style="margin-top:10px">
         <button class="btn" id="confirmAcc">Confirmar</button>
         <button class="btn ghost" id="cancelAcc">Cancelar</button>
@@ -239,6 +242,12 @@ function renderBase() {
         <div class="stat"><div class="v orange">${E}</div><div class="k">Energía</div></div>
         <div class="stat"><div class="v">${fmt(m.pl_semana)}</div><div class="k">Esta semana</div></div>
       </div>
+    </div>
+    <div class="card">
+      <h2 class="section" style="margin-top:0">Defensa</h2>
+      <p class="hint" style="margin-top:0">${protegido
+        ? '🛡️ <b style="color:var(--ok)">Defensas activas</b> — los robos contra ti se repelen (y el atacante queda debilitado) hasta el ' + new Date(m.escudo_hasta).toLocaleDateString("es-ES")
+        : '⚠️ <b>Sin escudo</b>: eres vulnerable. Refuerza con 🛡️ Escudo.'}</p>
     </div>
     <div class="card">
       <h2 class="section" style="margin-top:0">Acciones</h2>
