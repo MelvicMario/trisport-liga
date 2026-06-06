@@ -1,0 +1,15 @@
+{
+  "name": "TriSport Liga",
+  "short_name": "TriSport",
+  "description": "El juego de la liga del club TriSport Getafe: constancia, participación y piques.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f2240",
+  "theme_color": "#0f2240",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

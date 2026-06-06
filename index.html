@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0f2240" />
+  <title>TriSport Liga</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <div class="logo">TS</div>
+      <div>
+        <h1>TriSport Liga</h1>
+        <p class="lema">Juntos Más Fuertes</p>
+      </div>
+    </header>
+
+    <main>
+      <!-- CLASIFICACIÓN -->
+      <section id="view-rank" class="view active">
+        <div class="seg" id="rankSeg">
+          <button data-mode="general" class="active">General</button>
+          <button data-mode="div">Por divisiones</button>
+        </div>
+        <div id="rankList"></div>
+      </section>
+
+      <!-- MI BASE -->
+      <section id="view-base" class="view">
+        <div id="baseContent"></div>
+      </section>
+
+      <!-- CÓMO SE JUEGA -->
+      <section id="view-help" class="view help">
+        <h2 class="section">Cómo se juega</h2>
+        <div class="card">
+          <p>La liga premia <b>la constancia y la participación</b>, no quién hace más
+          kilómetros. Entrenar genera <b>Puntos de Liga</b> (tu posición) y <b>Energía</b>
+          (días que entrenas esa semana, máx. 5) para usar en acciones.</p>
+        </div>
+        <div class="card">
+          <p>🛡️ <b>Escudo</b> — reduce lo que te pueden robar esta semana.</p>
+          <p>🥷 <b>Robo</b> — te llevas parte de los puntos que un rival ganó esta semana.</p>
+          <p>⚔️ <b>Duelo</b> — reto 1v1: gana quien sume más esa semana.</p>
+          <p>⚡ <b>Sprint</b> — multiplica los puntos que ganes esta semana (apuesta).</p>
+        </div>
+        <div class="card">
+          <p>Compites en tu división (<b>Oro / Plata / Bronce</b>). Las acciones deciden
+          los piques entre rivales cercanos; <b>el esfuerzo manda</b>, la estrategia afina.</p>
+        </div>
+        <p class="hint" id="metaLine"></p>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <button data-view="rank" class="active"><span class="ic">🏆</span>Clasificación</button>
+      <button data-view="base"><span class="ic">🎮</span>Mi Base</button>
+      <button data-view="help"><span class="ic">❓</span>Cómo jugar</button>
+    </nav>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
