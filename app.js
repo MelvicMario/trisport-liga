@@ -16,6 +16,8 @@ let soyAdmin = false;
 let pendingAction = null; // 'robo' | 'duelo' cuando se está eligiendo objetivo
 let retos = [];
 let eligiendoReto = false; // modo "elegir rival para retar" en la card Cara a Cara
+let misEntrenos = []; // últimas actividades del atleta actual
+let ataquesOn = true; // estado global de ataques (config_juego)
 
 boot();
 
@@ -123,6 +125,30 @@ async function loadData() {
   eventos = ev || [];
   campanas = camps || [];
   retos = rts || [];
+
+  // Últimos entrenos del atleta actual (por nombre).
+  const miNombre = (clasificacion.find((a) => a.atleta_key === myAtletaKey) || {}).nombre;
+  if (miNombre) {
+    try {
+      const { data: acts } = await sb
+        .from("actividades")
+        .select("deporte,nombre,km,min,elev,capturado_en")
+        .eq("atleta_nombre", miNombre)
+        .order("capturado_en", { ascending: false })
+        .limit(5);
+      misEntrenos = acts || [];
+    } catch (e) { misEntrenos = []; }
+  } else {
+    misEntrenos = [];
+  }
+
+  // Estado global de ataques (solo relevante para admin).
+  try {
+    const { data: cfg } = await sb.from("config_juego").select("ataques_habilitados").eq("id", 1);
+    const fila = cfg && cfg[0];
+    ataquesOn = fila ? fila.ataques_habilitados !== false : true;
+  } catch (e) { ataquesOn = true; }
+
   renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
@@ -358,6 +384,47 @@ function wireCaraACara() {
     b.addEventListener("click", () => responderReto(b.dataset.rejReto, false)));
 }
 
+function emojiDeporte(d) {
+  switch (d) {
+    case "Ride": case "VirtualRide": return "🚴";
+    case "Run": case "VirtualRun": return "🏃";
+    case "Swim": return "🏊";
+    case "WeightTraining": case "Workout": return "💪";
+    case "Walk": case "Hike": return "🚶";
+    default: return "⭐";
+  }
+}
+
+function entrenosHTML() {
+  let body;
+  if (!misEntrenos.length) {
+    body = `<p class="hint">Aún no hay entrenos registrados.</p>`;
+  } else {
+    const filas = misEntrenos.map((e) => {
+      const min = Number(e.min) || 0;
+      const km = Number(e.km) || 0;
+      const valida = (min >= 15 || km >= 3);
+      const puntos = valida ? Math.round(12 + Math.min(min / 40, 1) * 4) : 0;
+      const titulo = e.nombre || e.deporte || "Entreno";
+      const partes = [];
+      if (km > 0) partes.push(`${fmt(km)} km`);
+      if (min > 0) partes.push(`${fmt(min)} min`);
+      const detalle = partes.join(" · ");
+      return `<div class="row">
+        <div class="who"><div class="nm">${emojiDeporte(e.deporte)} ${titulo}</div>
+          <div class="sub"><span>${fechaCorta(e.capturado_en)}${detalle ? " · " + detalle : ""}</span></div></div>
+        <div class="cofre">≈ ${puntos}<small>pts</small></div>
+      </div>`;
+    }).join("");
+    body = filas + `<p class="hint" style="margin:10px 0 0">Aprox. por entreno. Los bonus de racha,
+      variedad y semana cumplida se suman aparte (mira Cómo se juega).</p>`;
+  }
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🏃 Tus últimos entrenos</h2>
+    ${body}
+  </div>`;
+}
+
 function renderBase() {
   const m = me();
   const c = $("#baseContent");
@@ -417,7 +484,8 @@ function renderBase() {
       <h2 class="section" style="margin-top:0">Acciones</h2>
       ${acciones}
     </div>
-    ${caraACaraHTML(m)}`;
+    ${caraACaraHTML(m)}
+    ${entrenosHTML()}`;
 
   // listeners
   $$(".act[data-acc]").forEach((b) => b.addEventListener("click", () => onAccion(b.dataset.acc)));
@@ -498,11 +566,28 @@ function renderAdmin() {
     <div class="card">
       <h2 class="section" style="margin-top:0">Campañas activas y programadas</h2>
       ${lista}
+    </div>
+    <div class="card">
+      <h2 class="section" style="margin-top:0">⚔️ Ataques</h2>
+      <p class="hint" style="margin-top:0">${ataquesOn
+        ? "🟢 Ataques <b>HABILITADOS</b> — los jugadores pueden robar y retar a duelo."
+        : "🔴 Ataques <b>BLOQUEADOS</b> — robos y duelos desactivados para toda la liga."}</p>
+      <button class="btn${ataquesOn ? " ghost" : ""}" id="adm-ataques">
+        ${ataquesOn ? "Bloquear ataques" : "Habilitar ataques"}
+      </button>
     </div>`;
 
   $("#adm-lanzar")?.addEventListener("click", lanzarCampana);
   $$("button[data-end]").forEach((b) =>
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
+  $("#adm-ataques")?.addEventListener("click", toggleAtaques);
+}
+
+async function toggleAtaques() {
+  const { data, error } = await sb.rpc("set_ataques", { p_on: !ataquesOn });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  await loadData();
 }
 
 async function lanzarCampana() {
