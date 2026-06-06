@@ -1,5 +1,5 @@
 // Service worker mínimo para que la app sea instalable y funcione offline.
-const CACHE = "trisport-liga-v9";
+const CACHE = "trisport-liga-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -22,9 +22,17 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// Network-first: siempre intenta la última versión de la red; la caché es solo
+// respaldo offline. Evita servir HTML/JS viejos.
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

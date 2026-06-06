@@ -147,8 +147,19 @@ async function loadData() {
         .select("deporte,nombre,km,min,elev,capturado_en")
         .eq("atleta_nombre", miNombre)
         .order("capturado_en", { ascending: false })
-        .limit(5);
-      misEntrenos = acts || [];
+        .limit(20);
+      // Quita duplicados de la misma sesión (Garmin + Zwift) para la lista.
+      const crudas = acts || [];
+      const disc = (s) => /swim/i.test(s) ? "nadar" : /ride/i.test(s) ? "bici" : /run/i.test(s) ? "correr" : "otro";
+      const dd = [];
+      for (const x of crudas) {
+        const m = Number(x.min) || 0, k = Number(x.km) || 0;
+        const dup = dd.find((b) => disc(b.deporte) === disc(x.deporte)
+          && Math.abs((Number(b.min) || 0) - m) <= 8
+          && Math.abs((Number(b.km) || 0) - k) <= Math.max(1.5, 0.1 * Math.max(k, Number(b.km) || 0)));
+        if (!dup) dd.push(x);
+      }
+      misEntrenos = dd.slice(0, 5);
     } catch (e) { misEntrenos = []; }
   } else {
     misEntrenos = [];
