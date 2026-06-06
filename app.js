@@ -11,6 +11,8 @@ const fmt = (n) => Math.round(n).toLocaleString("es-ES");
 let myAtletaKey = null;
 let clasificacion = [];
 let eventos = [];
+let campanas = [];
+let soyAdmin = false;
 let pendingAction = null; // 'robo' | 'duelo' cuando se está eligiendo objetivo
 
 boot();
@@ -50,6 +52,9 @@ function wireUI() {
 // ---------- Login ----------
 function showLogin() {
   myAtletaKey = null;
+  soyAdmin = false;
+  const tabAdmin = $("#tabAdmin");
+  if (tabAdmin) tabAdmin.style.display = "none";
   $("#tabs").style.display = "none";
   $("#logout").style.display = "none";
   $$(".view").forEach((v) => v.classList.remove("active"));
@@ -87,6 +92,15 @@ async function afterLogin() {
     return;
   }
   myAtletaKey = aKey;
+
+  // ¿Es administrador? Si lo es, mostramos la pestaña Admin.
+  try {
+    const { data: admin } = await sb.rpc("soy_admin");
+    soyAdmin = admin === true;
+  } catch (e) { soyAdmin = false; }
+  const tabAdmin = $("#tabAdmin");
+  if (tabAdmin) tabAdmin.style.display = soyAdmin ? "" : "none";
+
   await loadData();
   $("#tabs").style.display = "flex";
   $("#logout").style.display = "block";
@@ -96,17 +110,53 @@ async function afterLogin() {
 }
 
 async function loadData() {
-  const [{ data: cl, error }, { data: ev }] = await Promise.all([
+  const [{ data: cl, error }, { data: ev }, { data: camps }] = await Promise.all([
     sb.from("clasificacion").select("*"),
     sb.from("eventos").select("*").order("creado_en", { ascending: false }).limit(12),
+    sb.from("campanas").select("*"),
   ]);
   if (error) { console.error(error); return; }
   clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
   eventos = ev || [];
+  campanas = camps || [];
   renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
+  renderBanner();
+  renderAdmin();
   $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas en la nube.`;
+}
+
+// ---------- Campañas ----------
+function campanaActiva() {
+  const now = Date.now();
+  return campanas.find((c) => {
+    const ini = c.inicio ? new Date(c.inicio).getTime() : -Infinity;
+    const fin = c.fin ? new Date(c.fin).getTime() : Infinity;
+    return now >= ini && now <= fin;
+  }) || null;
+}
+
+function fechaCorta(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
+}
+
+function renderBanner() {
+  const el = $("#campaignBanner");
+  if (!el) return;
+  const c = campanaActiva();
+  if (!c) { el.innerHTML = ""; return; }
+  const tregua = c.bloquea_ataques
+    ? `<div style="margin-top:8px;font-weight:800">🕊️ Tregua: ataques bloqueados</div>` : "";
+  el.innerHTML = `
+    <div class="card hero" style="margin-bottom:14px;border:1px solid var(--orange)">
+      <div class="nm" style="font-size:18px">${c.emoji || "📣"} ${c.titulo || "Campaña"}</div>
+      ${c.descripcion ? `<p class="hint" style="margin:6px 0 0">${c.descripcion}</p>` : ""}
+      <div class="badge" style="margin-top:10px;background:var(--orange);color:var(--navy)">hasta ${fechaCorta(c.fin)}</div>
+      ${tregua}
+    </div>`;
 }
 
 function nameOf(key) {
@@ -271,4 +321,97 @@ function onAccion(tipo) {
     pendingAction = tipo;
     renderBase();
   }
+}
+
+// ---------- Admin ----------
+function renderAdmin() {
+  const c = $("#adminContent");
+  if (!c) return;
+  if (!soyAdmin) { c.innerHTML = ""; return; }
+
+  const inputStyle = "width:100%;padding:11px;border-radius:12px;font-size:15px;background:var(--navy-2);color:#fff;border:1px solid rgba(255,255,255,.14);margin:6px 0 12px";
+
+  // Campañas activas y futuras (las que aún no han terminado).
+  const now = Date.now();
+  const vigentes = campanas
+    .filter((x) => !x.fin || new Date(x.fin).getTime() >= now)
+    .sort((a, b) => new Date(a.inicio || 0) - new Date(b.inicio || 0));
+
+  const lista = vigentes.length
+    ? vigentes.map((x) => {
+        const activa = (() => {
+          const ini = x.inicio ? new Date(x.inicio).getTime() : -Infinity;
+          const fin = x.fin ? new Date(x.fin).getTime() : Infinity;
+          return now >= ini && now <= fin;
+        })();
+        return `<div class="row">
+          <div class="who"><div class="nm">${x.emoji || "📣"} ${x.titulo || "Campaña"}</div>
+            <div class="sub"><span>${activa ? "🟢 activa" : "🕒 futura"} · hasta ${fechaCorta(x.fin)}</span></div></div>
+          <button class="btn ghost" data-end="${x.id}" style="width:auto;margin:0;padding:8px 12px">Terminar</button>
+        </div>`;
+      }).join("")
+    : `<p class="hint">No hay campañas activas ni programadas.</p>`;
+
+  c.innerHTML = `
+    <div class="card">
+      <h2 class="section" style="margin-top:0">Lanzar campaña</h2>
+      <label class="hint">Título</label>
+      <input id="adm-titulo" type="text" placeholder="Reto de la semana" style="${inputStyle}" />
+      <label class="hint">Emoji</label>
+      <input id="adm-emoji" type="text" maxlength="4" placeholder="🔥" style="${inputStyle}" />
+      <label class="hint">Descripción</label>
+      <textarea id="adm-desc" rows="2" placeholder="De qué va la campaña…" style="${inputStyle}"></textarea>
+      <label class="hint">Duración (días)</label>
+      <input id="adm-dias" type="number" min="1" value="7" style="${inputStyle}" />
+      <label class="row" style="gap:8px;margin:0 0 12px">
+        <input id="adm-bloquea" type="checkbox" style="width:auto;margin:0" />
+        <span>Bloquear ataques (tregua)</span>
+      </label>
+      <label class="hint">Deporte con bonus</label>
+      <select id="adm-deporte" style="${inputStyle}">
+        <option value="">— ninguno —</option>
+        <option value="Ride">Ride</option>
+        <option value="Run">Run</option>
+        <option value="Swim">Swim</option>
+      </select>
+      <label class="hint">Factor</label>
+      <input id="adm-factor" type="number" step="0.1" min="1" value="2" style="${inputStyle}" />
+      <button class="btn" id="adm-lanzar">Lanzar campaña</button>
+    </div>
+    <div class="card">
+      <h2 class="section" style="margin-top:0">Campañas activas y programadas</h2>
+      ${lista}
+    </div>`;
+
+  $("#adm-lanzar")?.addEventListener("click", lanzarCampana);
+  $$("button[data-end]").forEach((b) =>
+    b.addEventListener("click", () => terminarCampana(b.dataset.end)));
+}
+
+async function lanzarCampana() {
+  const titulo = $("#adm-titulo").value.trim();
+  if (!titulo) { alert("Pon un título a la campaña."); return; }
+  const args = {
+    p_titulo: titulo,
+    p_emoji: $("#adm-emoji").value.trim() || "📣",
+    p_descripcion: $("#adm-desc").value.trim(),
+    p_dias: Number($("#adm-dias").value) || 7,
+    p_bloquea: $("#adm-bloquea").checked,
+    p_deporte: $("#adm-deporte").value || null,
+    p_factor: Number($("#adm-factor").value) || 1,
+  };
+  const { data, error } = await sb.rpc("crear_campana", args);
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  if (data && data.msg) alert(data.msg);
+  await loadData();
+}
+
+async function terminarCampana(id) {
+  if (!confirm("¿Terminar esta campaña ahora?")) return;
+  const { data, error } = await sb.rpc("terminar_campana", { p_id: id });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  if (data && data.msg) alert(data.msg);
+  await loadData();
 }

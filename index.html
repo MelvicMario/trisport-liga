@@ -41,6 +41,7 @@
 
       <!-- NOTICIAS -->
       <section id="view-news" class="view">
+        <div id="campaignBanner"></div>
         <h2 class="section">📰 Noticias de la liga</h2>
         <div id="newsList"></div>
       </section>
@@ -72,6 +73,12 @@
         </div>
         <p class="hint" id="metaLine"></p>
       </section>
+
+      <!-- ADMIN -->
+      <section id="view-admin" class="view">
+        <h2 class="section">📣 Panel de admin</h2>
+        <div id="adminContent"></div>
+      </section>
     </main>
 
     <nav class="tabs" id="tabs" style="display:none">
@@ -79,6 +86,7 @@
       <button data-view="base"><span class="ic">🏰</span>Mi Castillo</button>
       <button data-view="rank"><span class="ic">🏆</span>Jugadores</button>
       <button data-view="help"><span class="ic">❓</span>Cómo</button>
+      <button data-view="admin" id="tabAdmin" style="display:none"><span class="ic">📣</span>Admin</button>
     </nav>
   </div>
 
