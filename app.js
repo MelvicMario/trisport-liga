@@ -10,6 +10,8 @@ const fmt = (n) => Math.round(n).toLocaleString("es-ES");
 
 let myAtletaKey = null;
 let clasificacion = [];
+let eventos = [];
+let pendingAction = null; // 'robo' | 'duelo' cuando se está eligiendo objetivo
 
 boot();
 
@@ -94,12 +96,30 @@ async function afterLogin() {
 }
 
 async function loadData() {
-  const { data, error } = await sb.from("clasificacion").select("*");
+  const [{ data: cl, error }, { data: ev }] = await Promise.all([
+    sb.from("clasificacion").select("*"),
+    sb.from("eventos").select("*").order("creado_en", { ascending: false }).limit(12),
+  ]);
   if (error) { console.error(error); return; }
-  clasificacion = (data || []).sort((a, b) => b.cofre - a.cofre);
-  renderRank("general");
+  clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
+  eventos = ev || [];
+  renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
   $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas en la nube.`;
+}
+
+async function doAccion(tipo, objetivo = null) {
+  const { data, error } = await sb.rpc("jugar_accion", { p_tipo: tipo, p_objetivo: objetivo });
+  pendingAction = null;
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); }
+  await loadData();
+  if (data && data.ok) flash(data.msg);
+}
+
+function flash(msg) {
+  const el = $("#flash");
+  if (el) { el.textContent = msg; el.style.display = "block"; setTimeout(() => (el.style.display = "none"), 4000); }
 }
 
 // ---------- Render ----------
@@ -130,27 +150,82 @@ function renderRank(mode = "general") {
       clasificacion.map((a, i) => rowHTML(a, i + 1)).join("");
   }
 }
+const COSTE = { escudo: 2, sprint: 3, robo: 3, duelo: 2 };
+
 function renderBase() {
   const m = me();
   const c = $("#baseContent");
   if (!m) { c.innerHTML = `<div class="card"><p class="hint">No encuentro tu castillo. Avisa al admin.</p></div>`; return; }
+  const E = m.energia_semana;
+  const protegido = m.escudo_hasta && new Date(m.escudo_hasta) > new Date();
+  const rivals = clasificacion.filter((a) => a.division === m.division && a.atleta_key !== m.atleta_key && a.pl_semana > 0);
+
+  let acciones;
+  if (E <= 0) {
+    acciones = `<p class="hint">Sin energía esta semana. La energía sale de los días que entrenas.</p>`;
+  } else if (pendingAction) {
+    const verbo = pendingAction === "robo" ? "robar 🥷" : "retar a duelo ⚔️";
+    acciones = `<p class="hint">¿A quién quieres ${verbo}? (rivales de tu división)</p>
+      <select id="target"><option value="">— elige rival —</option>
+        ${rivals.map((r) => `<option value="${r.atleta_key}">${r.nombre} · ${fmt(r.pl_semana)} pts esta semana</option>`).join("")}</select>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn" id="confirmAcc">Confirmar</button>
+        <button class="btn ghost" id="cancelAcc">Cancelar</button>
+      </div>`;
+  } else {
+    const a = (id, ico, t, cost) =>
+      `<button class="act" data-acc="${id}" ${E < cost ? "disabled" : ""}>
+        <div class="ico">${ico}</div><div class="t">${t}</div><div class="cost">−${cost} energía</div></button>`;
+    acciones = `<div class="actions">
+      ${a("escudo", "🛡️", "Escudo", COSTE.escudo)}
+      ${a("sprint", "⚡", "Sprint", COSTE.sprint)}
+      ${a("robo", "🥷", "Robo", COSTE.robo)}
+      ${a("duelo", "⚔️", "Duelo", COSTE.duelo)}
+    </div>`;
+  }
+
   c.innerHTML = `
+    <div id="flash" style="display:none;background:var(--orange);color:var(--navy);font-weight:800;padding:11px 13px;border-radius:12px;margin-bottom:12px"></div>
     <div class="card hero">
       <div style="display:flex;justify-content:space-between;align-items:start">
-        <div><div class="nm">${m.nombre}</div><span class="badge b-${m.division}">División ${m.division}</span></div>
+        <div><div class="nm">${m.nombre}</div><span class="badge b-${m.division}">División ${m.division}</span>
+          ${protegido ? ' <span class="badge" style="background:rgba(54,199,128,.18);color:var(--ok)">🛡️ protegido</span>' : ""}</div>
         <div style="text-align:right"><div style="font-size:26px;font-weight:900">#${myPos()}</div>
           <div class="k" style="font-size:10px;color:var(--muted)">posición</div></div>
       </div>
       <div class="stat-grid">
         <div class="stat"><div class="v">${fmt(m.cofre)}</div><div class="k">Cofre</div></div>
-        <div class="stat"><div class="v orange">${m.energia_semana}</div><div class="k">Energía</div></div>
-        <div class="stat"><div class="v">${m.division}</div><div class="k">División</div></div>
+        <div class="stat"><div class="v orange">${E}</div><div class="k">Energía</div></div>
+        <div class="stat"><div class="v">${fmt(m.pl_semana)}</div><div class="k">Esta semana</div></div>
       </div>
     </div>
     <div class="card">
       <h2 class="section" style="margin-top:0">Acciones</h2>
-      <p class="hint">⚔️ Los piques en vivo (escudo · robo · duelo · sprint contra otros socios)
-      se activan en el siguiente paso. Ahora ya estás <b>conectado a la liga real</b> y tu
-      castillo vive en la nube.</p>
+      ${acciones}
+    </div>
+    <div class="card">
+      <h2 class="section" style="margin-top:0">Últimos piques</h2>
+      <div class="log">${eventos.length
+        ? eventos.map((e) => `<div class="e ${e.tipo === "escudo" ? "info" : "good"}">${e.msg || e.tipo}</div>`).join("")
+        : '<p class="hint">Aún no hay movimientos. ¡Sé el primero!</p>'}</div>
     </div>`;
+
+  // listeners
+  $$(".act[data-acc]").forEach((b) => b.addEventListener("click", () => onAccion(b.dataset.acc)));
+  const conf = $("#confirmAcc"), canc = $("#cancelAcc");
+  if (conf) conf.addEventListener("click", () => {
+    const t = $("#target").value;
+    if (!t) { alert("Elige un rival."); return; }
+    doAccion(pendingAction, t);
+  });
+  if (canc) canc.addEventListener("click", () => { pendingAction = null; renderBase(); });
+}
+
+function onAccion(tipo) {
+  if (tipo === "escudo" || tipo === "sprint") {
+    if (confirm(tipo === "escudo" ? "¿Activar escudo esta semana?" : "¿Usar sprint? Multiplica tus puntos de la semana.")) doAccion(tipo);
+  } else {
+    pendingAction = tipo;
+    renderBase();
+  }
 }
