@@ -18,6 +18,10 @@ let retos = [];
 let eligiendoReto = false; // modo "elegir rival para retar" en la card Cara a Cara
 let misEntrenos = []; // últimas actividades del atleta actual
 let ataquesOn = true; // estado global de ataques (config_juego)
+let alianzas = []; // {alianza_id, nombre, emoji}
+let rankAlianzas = []; // {alianza_id, nombre, emoji, miembros, puntos} (ya ordenado)
+let alianzaDe = {}; // {atleta_key: alianza_id}
+let modoAlianzas = false; // config_juego.modo_alianzas
 
 boot();
 
@@ -114,17 +118,25 @@ async function afterLogin() {
 }
 
 async function loadData() {
-  const [{ data: cl, error }, { data: ev }, { data: camps }, { data: rts }] = await Promise.all([
+  const [{ data: cl, error }, { data: ev }, { data: camps }, { data: rts },
+    { data: ali }, { data: rkAli }, { data: estAli }] = await Promise.all([
     sb.from("clasificacion").select("*"),
     sb.from("eventos").select("*").order("creado_en", { ascending: false }).limit(12),
     sb.from("campanas").select("*"),
     sb.from("retos").select("*"),
+    sb.from("alianzas").select("*"),
+    sb.from("clasificacion_alianzas").select("*"),
+    sb.from("estado_atleta").select("atleta_key,alianza_id"),
   ]);
   if (error) { console.error(error); return; }
   clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
   eventos = ev || [];
   campanas = camps || [];
   retos = rts || [];
+  alianzas = ali || [];
+  rankAlianzas = rkAli || [];
+  alianzaDe = {};
+  (estAli || []).forEach((r) => { alianzaDe[r.atleta_key] = r.alianza_id; });
 
   // Últimos entrenos del atleta actual (por nombre).
   const miNombre = (clasificacion.find((a) => a.atleta_key === myAtletaKey) || {}).nombre;
@@ -144,10 +156,11 @@ async function loadData() {
 
   // Estado global de ataques (solo relevante para admin).
   try {
-    const { data: cfg } = await sb.from("config_juego").select("ataques_habilitados").eq("id", 1);
+    const { data: cfg } = await sb.from("config_juego").select("ataques_habilitados,modo_alianzas").eq("id", 1);
     const fila = cfg && cfg[0];
     ataquesOn = fila ? fila.ataques_habilitados !== false : true;
-  } catch (e) { ataquesOn = true; }
+    modoAlianzas = fila ? fila.modo_alianzas === true : false;
+  } catch (e) { ataquesOn = true; modoAlianzas = false; }
 
   renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
@@ -261,7 +274,24 @@ function rowHTML(a, pos) {
 }
 function renderRank(mode = "general") {
   const list = $("#rankList");
-  if (mode === "div") {
+  if (mode === "alianzas") {
+    if (!rankAlianzas.length) {
+      list.innerHTML = `<h2 class="section">🤝 Alianzas</h2>` +
+        `<div class="card"><p class="hint">Todavía no hay alianzas en la liga.</p></div>`;
+      return;
+    }
+    list.innerHTML = `<h2 class="section">🤝 Alianzas</h2>` +
+      rankAlianzas.map((a, i) => {
+        const pos = i + 1;
+        const cls = pos === 1 ? "top1" : pos === 2 ? "top2" : pos === 3 ? "top3" : "";
+        return `<div class="row">
+          <div class="pos ${cls}">${pos}</div>
+          <div class="who"><div class="nm">${a.emoji || "🤝"} ${a.nombre}</div>
+            <div class="sub"><span>${fmt(a.miembros || 0)} miembro${(a.miembros || 0) === 1 ? "" : "s"}</span></div></div>
+          <div class="cofre">${fmt(a.puntos || 0)}<small>puntos</small></div>
+        </div>`;
+      }).join("");
+  } else if (mode === "div") {
     list.innerHTML = ["Oro", "Plata", "Bronce"].map((d) => {
       const rows = clasificacion.filter((a) => a.division === d);
       return `<h2 class="section">${d === "Oro" ? "🥇" : d === "Plata" ? "🥈" : "🥉"} División ${d}</h2>` +
@@ -425,6 +455,18 @@ function entrenosHTML() {
   </div>`;
 }
 
+function aliDe(key) {
+  const id = alianzaDe[key];
+  if (!id) return null;
+  return alianzas.find((a) => a.alianza_id === id) || null;
+}
+
+function miAlianzaHTML() {
+  const a = aliDe(myAtletaKey);
+  if (!a) return "";
+  return ` <span class="badge" style="background:var(--orange);color:var(--navy)">🤝 ${a.emoji || ""} ${a.nombre}</span>`;
+}
+
 function renderBase() {
   const m = me();
   const c = $("#baseContent");
@@ -464,7 +506,8 @@ function renderBase() {
     <div class="card hero">
       <div style="display:flex;justify-content:space-between;align-items:start">
         <div><div class="nm">${m.nombre}</div><span class="badge b-${m.division}">División ${m.division}</span>
-          ${protegido ? ` <span class="badge" style="background:rgba(54,199,128,.18);color:var(--ok)">🛡️ ${cargas}</span>` : ""}</div>
+          ${protegido ? ` <span class="badge" style="background:rgba(54,199,128,.18);color:var(--ok)">🛡️ ${cargas}</span>` : ""}
+          ${miAlianzaHTML()}</div>
         <div style="text-align:right"><div style="font-size:26px;font-weight:900">#${myPos()}</div>
           <div class="k" style="font-size:10px;color:var(--muted)">posición</div></div>
       </div>
@@ -575,12 +618,102 @@ function renderAdmin() {
       <button class="btn${ataquesOn ? " ghost" : ""}" id="adm-ataques">
         ${ataquesOn ? "Bloquear ataques" : "Habilitar ataques"}
       </button>
-    </div>`;
+    </div>
+    ${alianzasAdminHTML(inputStyle)}`;
 
   $("#adm-lanzar")?.addEventListener("click", lanzarCampana);
   $$("button[data-end]").forEach((b) =>
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
   $("#adm-ataques")?.addEventListener("click", toggleAtaques);
+  wireAlianzasAdmin();
+}
+
+function alianzasAdminHTML(inputStyle) {
+  // Lista de alianzas con sus miembros.
+  const listaAli = alianzas.length
+    ? alianzas.map((a) => {
+        const miembros = clasificacion
+          .filter((at) => alianzaDe[at.atleta_key] === a.alianza_id)
+          .map((at) => at.nombre);
+        return `<div class="row">
+          <div class="who"><div class="nm">${a.emoji || "🤝"} ${a.nombre}</div>
+            <div class="sub"><span>${miembros.length ? miembros.join(", ") : "sin miembros"}</span></div></div>
+        </div>`;
+      }).join("")
+    : `<p class="hint">No hay alianzas creadas todavía.</p>`;
+
+  // Selectores para asignar un atleta a una alianza (o sacarlo).
+  const optAtletas = clasificacion
+    .map((at) => `<option value="${at.atleta_key}">${at.nombre}</option>`).join("");
+  const optAlianzas = alianzas
+    .map((a) => `<option value="${a.alianza_id}">${a.emoji || ""} ${a.nombre}</option>`).join("");
+
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🤝 Alianzas</h2>
+    <p class="hint" style="margin-top:0">${modoAlianzas
+      ? "🟢 Modo alianzas <b>ON</b>"
+      : "⚪ Modo alianzas <b>OFF</b>"} — En modo alianzas solo se puede atacar a miembros de OTRA alianza.</p>
+    <button class="btn${modoAlianzas ? " ghost" : ""}" id="adm-modo-ali">
+      ${modoAlianzas ? "Desactivar modo alianzas" : "Activar modo alianzas"}
+    </button>
+
+    <h2 class="section">Crear alianza</h2>
+    <input id="adm-ali-nombre" type="text" placeholder="Nombre de la alianza" style="${inputStyle}" />
+    <input id="adm-ali-emoji" type="text" maxlength="4" placeholder="🔥 emoji" style="${inputStyle}" />
+    <button class="btn" id="adm-ali-crear">Crear alianza</button>
+
+    <h2 class="section">Asignar atleta</h2>
+    <select id="adm-ali-atleta" style="${inputStyle}">
+      <option value="">— elige atleta —</option>
+      ${optAtletas}
+    </select>
+    <select id="adm-ali-destino" style="${inputStyle}">
+      <option value="">— sin alianza —</option>
+      ${optAlianzas}
+    </select>
+    <button class="btn" id="adm-ali-asignar">Asignar</button>
+
+    <h2 class="section">Alianzas y miembros</h2>
+    ${listaAli}
+  </div>`;
+}
+
+function wireAlianzasAdmin() {
+  $("#adm-modo-ali")?.addEventListener("click", toggleModoAlianzas);
+  $("#adm-ali-crear")?.addEventListener("click", crearAlianza);
+  $("#adm-ali-asignar")?.addEventListener("click", asignarAlianza);
+}
+
+async function toggleModoAlianzas() {
+  const { data, error } = await sb.rpc("set_modo_alianzas", { p_on: !modoAlianzas });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  await loadData();
+}
+
+async function crearAlianza() {
+  const nombre = $("#adm-ali-nombre").value.trim();
+  if (!nombre) { alert("Pon un nombre a la alianza."); return; }
+  const emoji = $("#adm-ali-emoji").value.trim() || "🤝";
+  const { data, error } = await sb.rpc("crear_alianza", { p_nombre: nombre, p_emoji: emoji });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  if (data && data.msg) flash(data.msg);
+  await loadData();
+}
+
+async function asignarAlianza() {
+  const atleta = $("#adm-ali-atleta").value;
+  if (!atleta) { alert("Elige un atleta."); return; }
+  const destino = $("#adm-ali-destino").value;
+  const { data, error } = await sb.rpc("asignar_alianza", {
+    p_atleta_key: atleta,
+    p_alianza: destino || null,
+  });
+  if (error) { alert("Error: " + error.message); return; }
+  if (data && data.ok === false) { alert(data.msg); return; }
+  if (data && data.msg) flash(data.msg);
+  await loadData();
 }
 
 async function toggleAtaques() {
