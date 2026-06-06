@@ -90,9 +90,9 @@ async function afterLogin() {
   await loadData();
   $("#tabs").style.display = "flex";
   $("#logout").style.display = "block";
-  $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "rank"));
+  $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "news"));
   $$(".view").forEach((v) => v.classList.remove("active"));
-  $("#view-rank").classList.add("active");
+  $("#view-news").classList.add("active");
 }
 
 async function loadData() {
@@ -103,9 +103,50 @@ async function loadData() {
   if (error) { console.error(error); return; }
   clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
   eventos = ev || [];
+  renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
   $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas en la nube.`;
+}
+
+function nameOf(key) {
+  const a = clasificacion.find((x) => x.atleta_key === key);
+  return a ? a.nombre : key;
+}
+function hace(ts) {
+  const s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return "ahora";
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)} h`;
+  return `hace ${Math.floor(s / 86400)} d`;
+}
+function noticiaTexto(e) {
+  const A = nameOf(e.actor), O = e.objetivo ? nameOf(e.objetivo) : "";
+  const n = Math.round(e.amount || 0);
+  switch (e.tipo) {
+    case "robo": return `🥷 <b>${A}</b> robó <b>${n}</b> pts a ${O}`;
+    case "escudo": return `🛡️ <b>${A}</b> levantó un escudo`;
+    case "sprint": return `⚡ <b>${A}</b> apretó un sprint (+${n})`;
+    case "duelo":
+      if ((e.msg || "").includes("Ganaste")) return `⚔️ <b>${A}</b> ganó un duelo a ${O} (+${n})`;
+      if ((e.msg || "").includes("Perdiste")) return `⚔️ <b>${O}</b> ganó un duelo a ${A} (+${n})`;
+      return `⚔️ Duelo entre <b>${A}</b> y ${O}`;
+    default: return e.msg || e.tipo;
+  }
+}
+function renderNoticias() {
+  const el = $("#newsList");
+  if (!eventos.length) {
+    el.innerHTML = `<div class="card"><p class="hint">Todavía no hay movimientos en la liga.
+      Ve a <b>Mi Castillo</b> y haz el primer ataque ⚔️</p></div>`;
+    return;
+  }
+  el.innerHTML = eventos.map((e) => {
+    const mio = e.actor === myAtletaKey || e.objetivo === myAtletaKey;
+    return `<div class="row${mio ? " me" : ""}" style="align-items:flex-start">
+      <div class="who"><div class="nm" style="font-weight:600;font-size:14px">${noticiaTexto(e)}</div>
+        <div class="sub"><span>${hace(e.creado_en)}</span></div></div></div>`;
+  }).join("");
 }
 
 async function doAccion(tipo, objetivo = null) {
@@ -202,12 +243,6 @@ function renderBase() {
     <div class="card">
       <h2 class="section" style="margin-top:0">Acciones</h2>
       ${acciones}
-    </div>
-    <div class="card">
-      <h2 class="section" style="margin-top:0">Últimos piques</h2>
-      <div class="log">${eventos.length
-        ? eventos.map((e) => `<div class="e ${e.tipo === "escudo" ? "info" : "good"}">${e.msg || e.tipo}</div>`).join("")
-        : '<p class="hint">Aún no hay movimientos. ¡Sé el primero!</p>'}</div>
     </div>`;
 
   // listeners

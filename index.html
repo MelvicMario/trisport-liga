@@ -39,18 +39,24 @@
         <p class="hint" style="text-align:center">Solo pueden entrar los emails autorizados del club.</p>
       </section>
 
-      <!-- CLASIFICACIÓN -->
+      <!-- NOTICIAS -->
+      <section id="view-news" class="view">
+        <h2 class="section">📰 Noticias de la liga</h2>
+        <div id="newsList"></div>
+      </section>
+
+      <!-- MI CASTILLO -->
+      <section id="view-base" class="view">
+        <div id="baseContent"></div>
+      </section>
+
+      <!-- JUGADORES -->
       <section id="view-rank" class="view">
         <div class="seg" id="rankSeg">
           <button data-mode="general" class="active">General</button>
           <button data-mode="div">Por divisiones</button>
         </div>
         <div id="rankList"></div>
-      </section>
-
-      <!-- MI BASE -->
-      <section id="view-base" class="view">
-        <div id="baseContent"></div>
       </section>
 
       <!-- CÓMO SE JUEGA -->
@@ -69,9 +75,10 @@
     </main>
 
     <nav class="tabs" id="tabs" style="display:none">
-      <button data-view="rank" class="active"><span class="ic">🏆</span>Clasificación</button>
-      <button data-view="base"><span class="ic">🎮</span>Mi Base</button>
-      <button data-view="help"><span class="ic">❓</span>Cómo jugar</button>
+      <button data-view="news" class="active"><span class="ic">📰</span>Noticias</button>
+      <button data-view="base"><span class="ic">🏰</span>Mi Castillo</button>
+      <button data-view="rank"><span class="ic">🏆</span>Jugadores</button>
+      <button data-view="help"><span class="ic">❓</span>Cómo</button>
     </nav>
   </div>
 
