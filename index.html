@@ -14,15 +14,29 @@
   <div id="app">
     <header class="top">
       <div class="logo">TS</div>
-      <div>
+      <div style="flex:1">
         <h1>TriSport Liga</h1>
         <p class="lema">Juntos Más Fuertes</p>
       </div>
+      <button id="logout" class="btn ghost" style="display:none;width:auto;margin:0;padding:8px 12px">Salir</button>
     </header>
 
     <main>
+      <!-- LOGIN -->
+      <section id="view-login" class="view active">
+        <div class="card hero" style="margin-top:24px">
+          <div class="nm" style="margin-bottom:6px">Entra a la liga</div>
+          <p class="hint">Escribe tu email de socio. Te mandamos un enlace para entrar (sin contraseñas).</p>
+          <input id="email" type="email" inputmode="email" placeholder="tucorreo@ejemplo.com"
+                 style="width:100%;padding:13px;border-radius:12px;font-size:15px;background:var(--navy-2);color:#fff;border:1px solid rgba(255,255,255,.14);margin:12px 0" />
+          <button class="btn" id="sendLink">Enviar enlace de acceso</button>
+          <p class="hint" id="loginMsg" style="margin-top:12px"></p>
+        </div>
+        <p class="hint" style="text-align:center">Solo pueden entrar los emails autorizados del club.</p>
+      </section>
+
       <!-- CLASIFICACIÓN -->
-      <section id="view-rank" class="view active">
+      <section id="view-rank" class="view">
         <div class="seg" id="rankSeg">
           <button data-mode="general" class="active">General</button>
           <button data-mode="div">Por divisiones</button>
@@ -38,26 +52,19 @@
       <!-- CÓMO SE JUEGA -->
       <section id="view-help" class="view help">
         <h2 class="section">Cómo se juega</h2>
+        <div class="card"><p>La liga premia <b>la constancia y la participación</b>, no quién hace más
+          kilómetros. Entrenar genera <b>Puntos de Liga</b> (tu posición) y <b>Energía</b> para acciones.</p></div>
         <div class="card">
-          <p>La liga premia <b>la constancia y la participación</b>, no quién hace más
-          kilómetros. Entrenar genera <b>Puntos de Liga</b> (tu posición) y <b>Energía</b>
-          (días que entrenas esa semana, máx. 5) para usar en acciones.</p>
-        </div>
-        <div class="card">
-          <p>🛡️ <b>Escudo</b> — reduce lo que te pueden robar esta semana.</p>
-          <p>🥷 <b>Robo</b> — te llevas parte de los puntos que un rival ganó esta semana.</p>
-          <p>⚔️ <b>Duelo</b> — reto 1v1: gana quien sume más esa semana.</p>
-          <p>⚡ <b>Sprint</b> — multiplica los puntos que ganes esta semana (apuesta).</p>
-        </div>
-        <div class="card">
-          <p>Compites en tu división (<b>Oro / Plata / Bronce</b>). Las acciones deciden
-          los piques entre rivales cercanos; <b>el esfuerzo manda</b>, la estrategia afina.</p>
+          <p>🛡️ <b>Escudo</b> — reduce lo que te roban.</p>
+          <p>🥷 <b>Robo</b> — te llevas parte de lo que ganó un rival.</p>
+          <p>⚔️ <b>Duelo</b> — reto 1v1 a quien sume más esa semana.</p>
+          <p>⚡ <b>Sprint</b> — multiplica tus puntos de la semana.</p>
         </div>
         <p class="hint" id="metaLine"></p>
       </section>
     </main>
 
-    <nav class="tabs">
+    <nav class="tabs" id="tabs" style="display:none">
       <button data-view="rank" class="active"><span class="ic">🏆</span>Clasificación</button>
       <button data-view="base"><span class="ic">🎮</span>Mi Base</button>
       <button data-view="help"><span class="ic">❓</span>Cómo jugar</button>
