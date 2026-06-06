@@ -26,6 +26,7 @@ async function boot() {
 }
 
 function wireUI() {
+  $("#googleBtn").addEventListener("click", loginGoogle);
   $("#sendLink").addEventListener("click", sendLink);
   $("#email").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLink(); });
   $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); myAtletaKey = null; });
@@ -51,6 +52,14 @@ function showLogin() {
   $("#logout").style.display = "none";
   $$(".view").forEach((v) => v.classList.remove("active"));
   $("#view-login").classList.add("active");
+}
+
+async function loginGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: location.origin + location.pathname },
+  });
+  if (error) $("#loginMsg").innerHTML = "⚠️ " + error.message;
 }
 
 async function sendLink() {
