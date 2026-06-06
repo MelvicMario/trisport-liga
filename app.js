@@ -174,8 +174,7 @@ function rowHTML(a, pos) {
   return `<div class="row${mine}">
     <div class="pos ${cls}">${pos}</div>
     <div class="who"><div class="nm">${a.nombre}${a.atleta_key === myAtletaKey ? " ·tú" : ""}</div>
-      <div class="sub"><span class="badge b-${a.division}">${a.division}</span>
-        <span>⚡ ${a.energia_semana} energía</span></div></div>
+      <div class="sub"><span class="badge b-${a.division}">${a.division}</span></div></div>
     <div class="cofre">${fmt(a.cofre)}<small>puntos</small></div>
   </div>`;
 }
@@ -199,7 +198,8 @@ function renderBase() {
   const c = $("#baseContent");
   if (!m) { c.innerHTML = `<div class="card"><p class="hint">No encuentro tu castillo. Avisa al admin.</p></div>`; return; }
   const E = m.energia_semana;
-  const protegido = m.escudo_hasta && new Date(m.escudo_hasta) > new Date();
+  const cargas = m.defensa_cargas || 0;
+  const protegido = cargas > 0;
   const rivals = clasificacion.filter((a) => a.division === m.division && a.atleta_key !== m.atleta_key && a.pl_semana > 0);
 
   let acciones;
@@ -209,9 +209,8 @@ function renderBase() {
     const verbo = pendingAction === "robo" ? "robar 🥷" : "retar a duelo ⚔️";
     acciones = `<p class="hint">¿A quién quieres ${verbo}? (rivales de tu división)</p>
       <select id="target"><option value="">— elige rival —</option>
-        ${rivals.map((r) => { const p = r.escudo_hasta && new Date(r.escudo_hasta) > new Date();
-          return `<option value="${r.atleta_key}">${p ? "🛡️ " : ""}${r.nombre} · ${fmt(r.pl_semana)} pts</option>`; }).join("")}</select>
-      ${pendingAction === "robo" ? '<p class="hint" style="margin-top:8px">⚠️ Si el rival tiene 🛡️ escudo, el robo fallará y quedarás debilitado. Elige bien.</p>' : ""}
+        ${rivals.map((r) => `<option value="${r.atleta_key}">${r.nombre} · ${fmt(r.pl_semana)} pts</option>`).join("")}</select>
+      ${pendingAction === "robo" ? '<p class="hint" style="margin-top:8px">⚠️ No sabes si el rival está defendido. Si lo está, tu ataque fallará y quedarás debilitado: es una apuesta.</p>' : ""}
       <div class="actions" style="margin-top:10px">
         <button class="btn" id="confirmAcc">Confirmar</button>
         <button class="btn ghost" id="cancelAcc">Cancelar</button>
@@ -233,7 +232,7 @@ function renderBase() {
     <div class="card hero">
       <div style="display:flex;justify-content:space-between;align-items:start">
         <div><div class="nm">${m.nombre}</div><span class="badge b-${m.division}">División ${m.division}</span>
-          ${protegido ? ' <span class="badge" style="background:rgba(54,199,128,.18);color:var(--ok)">🛡️ protegido</span>' : ""}</div>
+          ${protegido ? ` <span class="badge" style="background:rgba(54,199,128,.18);color:var(--ok)">🛡️ ${cargas}</span>` : ""}</div>
         <div style="text-align:right"><div style="font-size:26px;font-weight:900">#${myPos()}</div>
           <div class="k" style="font-size:10px;color:var(--muted)">posición</div></div>
       </div>
@@ -246,8 +245,8 @@ function renderBase() {
     <div class="card">
       <h2 class="section" style="margin-top:0">Defensa</h2>
       <p class="hint" style="margin-top:0">${protegido
-        ? '🛡️ <b style="color:var(--ok)">Defensas activas</b> — los robos contra ti se repelen (y el atacante queda debilitado) hasta el ' + new Date(m.escudo_hasta).toLocaleDateString("es-ES")
-        : '⚠️ <b>Sin escudo</b>: eres vulnerable. Refuerza con 🛡️ Escudo.'}</p>
+        ? `🛡️ <b style="color:var(--ok)">${cargas} carga${cargas > 1 ? "s" : ""} de defensa</b> — cada robo que recibas se repele y gasta 1 carga (el atacante queda debilitado). Solo tú ves tus cargas.`
+        : "⚠️ <b>Sin defensa</b>: eres vulnerable a robos. Refuerza con 🛡️ Escudo."}</p>
     </div>
     <div class="card">
       <h2 class="section" style="margin-top:0">Acciones</h2>
