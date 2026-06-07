@@ -28,6 +28,7 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
+const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
 
@@ -155,6 +156,7 @@ async function loadData() {
         .from("actividades")
         .select("deporte,nombre,km,min,elev,capturado_en")
         .eq("atleta_nombre", miNombre)
+        .gte("capturado_en", SEASON_START)
         .order("capturado_en", { ascending: false })
         .limit(20);
       // Quita duplicados de la misma sesión (Garmin + Zwift) para la lista.
@@ -741,6 +743,7 @@ async function loadAdminPanel() {
   try {
     const { data } = await sb.from("actividades")
       .select("atleta_nombre,deporte,nombre,km,min,elev,capturado_en")
+      .gte("capturado_en", SEASON_START)
       .order("capturado_en", { ascending: false }).limit(500);
     adminActs = data || [];
   } catch (e) { adminActs = []; }
