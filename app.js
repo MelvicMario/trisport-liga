@@ -27,6 +27,7 @@ let adminPanel = null;   // {stats, seguimiento} del RPC admin_panel (solo admin
 let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
+let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
 
 boot();
 
@@ -652,9 +653,14 @@ function renderAdmin() {
       }).join("")
     : `<p class="hint">No hay campañas activas ni programadas.</p>`;
 
-  c.innerHTML = `
-    ${adminStatsHTML()}
-    ${adminActsHTML(inputStyle)}
+  const seg = `<div class="seg" id="admSeg" style="margin-bottom:12px">
+      <button data-atab="panel"${adminTab === "panel" ? ' class="active"' : ""}>📊 Panel</button>
+      <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
+    </div>`;
+
+  const panelHTML = `${adminStatsHTML()}${adminActsHTML(inputStyle)}`;
+
+  const configHTML = `
     <div class="card">
       <h2 class="section" style="margin-top:0">Lanzar campaña</h2>
       <label class="hint">Título</label>
@@ -697,6 +703,10 @@ function renderAdmin() {
     </div>
     ${alianzasAdminHTML(inputStyle)}`;
 
+  c.innerHTML = seg + (adminTab === "panel" ? panelHTML : configHTML);
+
+  $$("#admSeg button").forEach((b) =>
+    b.addEventListener("click", () => { adminTab = b.dataset.atab; renderAdmin(); }));
   $("#adm-lanzar")?.addEventListener("click", lanzarCampana);
   $$("button[data-end]").forEach((b) =>
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
