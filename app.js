@@ -158,10 +158,11 @@ async function loadData() {
         // Misma sesión por 2 fuentes: una sin km en bici, o km+tiempo casi idénticos.
         const dup = dd.find((b) => {
           if (disc(b.deporte) !== disc(x.deporte) || dia(b) !== dia(x)) return false;
+          if ((b.nombre || "") === (x.nombre || "")) return false; // mismo nombre = misma fuente
           const bm = Number(b.min) || 0, bk = Number(b.km) || 0;
           const unoSinKm = (k === 0) !== (bk === 0);
-          if (unoSinKm && disc(x.deporte) === "bici" && Math.abs(bm - m) <= 12) return true;
-          if (Math.abs(bk - k) <= Math.max(1, 0.08 * Math.max(k, bk)) && Math.abs(bm - m) <= 4) return true;
+          if (unoSinKm && disc(x.deporte) === "bici" && Math.abs(bm - m) <= 10) return true;
+          if (k > 0 && bk > 0 && Math.abs(bk - k) <= 0.05 * Math.max(k, bk) && Math.abs(bm - m) <= 3) return true;
           return false;
         });
         if (dup) {
