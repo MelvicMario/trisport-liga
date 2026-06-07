@@ -31,6 +31,8 @@ let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
+let adminDesgloses = {};   // atleta_key -> {desglose, puntos_base, ajuste_piques} (inspector admin)
+let adminAtletaSel = "";   // atleta seleccionado en el inspector
 
 boot();
 
@@ -664,7 +666,7 @@ function renderAdmin() {
       <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
     </div>`;
 
-  const panelHTML = `${adminStatsHTML()}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
+  const panelHTML = `${adminStatsHTML()}${adminAtletaHTML(inputStyle)}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
 
   const configHTML = `
     <div class="card">
@@ -720,6 +722,7 @@ function renderAdmin() {
   $("#adm-refresh")?.addEventListener("click", () => {
     adminPanel = null; adminActs = null; adminEventos = null; adminDuplicados = null; adminCargando = true; loadAdminPanel();
   });
+  $("#adm-atleta-sel")?.addEventListener("change", (e) => { adminAtletaSel = e.target.value; renderAdmin(); });
   const buscador = $("#adm-act-buscar");
   if (buscador) buscador.addEventListener("input", (e) => {
     adminActFiltro = e.target.value;
@@ -759,8 +762,40 @@ async function loadAdminPanel() {
       .order("detectado_en", { ascending: false }).limit(100);
     adminDuplicados = data || [];
   } catch (e) { adminDuplicados = []; }
+  try {
+    const { data } = await sb.from("estado_atleta").select("atleta_key,desglose,puntos_base,ajuste_piques");
+    adminDesgloses = {};
+    (data || []).forEach((r) => { adminDesgloses[r.atleta_key] = r; });
+  } catch (e) { adminDesgloses = {}; }
   adminCargando = false;
   renderAdmin();
+}
+
+function adminAtletaHTML(inputStyle) {
+  const opts = clasificacion.map((a) =>
+    `<option value="${a.atleta_key}"${a.atleta_key === adminAtletaSel ? " selected" : ""}>${a.nombre}</option>`).join("");
+  let detalle = `<p class="hint">Elige un atleta para ver su desglose de la semana (para responder dudas).</p>`;
+  const r = adminDesgloses[adminAtletaSel];
+  if (adminAtletaSel && r) {
+    const d = r.desglose || {};
+    const base = Math.round(d.base || 0);
+    const baseDias = (d.dias || 0) * 12;
+    const extra = base - baseDias;
+    const total = Math.round((Number(r.puntos_base) || 0) + (Number(r.ajuste_piques) || 0));
+    const fila = (e, v, s) => (v ? `<div class="sub" style="justify-content:space-between;display:flex"><span>${e}</span><span style="color:var(--orange-2);font-weight:700">${s || "+"}${v}</span></div>` : "");
+    detalle = `<div class="sub" style="justify-content:space-between;display:flex"><span>🗓️ ${d.dias || 0} día(s) × 12</span><span style="color:var(--orange-2);font-weight:700">+${baseDias}</span></div>
+      ${extra ? `<div class="sub" style="justify-content:space-between;display:flex"><span>💪 Volumen + racha</span><span style="color:var(--orange-2);font-weight:700">+${extra}</span></div>` : ""}
+      ${fila("🔀 Variedad (2+ deportes)", d.variedad)}
+      ${fila("🏆 Semana cumplida (3+ días)", d.semana)}
+      ${fila("👥 Salida de club", d.grupo)}
+      <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px"><span style="font-weight:800">Total esta semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total || 0)}</span></div>
+      <div class="sub" style="justify-content:space-between;display:flex"><span class="hint">Total temporada (con piques)</span><span style="font-weight:700">${total}</span></div>`;
+  }
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🔎 Puntos de un atleta</h2>
+    <select id="adm-atleta-sel" style="${inputStyle}"><option value="">— elige atleta —</option>${opts}</select>
+    ${detalle}
+  </div>`;
 }
 
 function adminDupHTML() {
