@@ -594,9 +594,11 @@ function renderAdmin() {
           const fin = x.fin ? new Date(x.fin).getTime() : Infinity;
           return now >= ini && now <= fin;
         })();
+        const bonusSem = x.bonus_semana_cumplida
+          ? ` · 🏆 semana x${x.bonus_semana_cumplida}` : "";
         return `<div class="row">
           <div class="who"><div class="nm">${x.emoji || "📣"} ${x.titulo || "Campaña"}</div>
-            <div class="sub"><span>${activa ? "🟢 activa" : "🕒 futura"} · hasta ${fechaCorta(x.fin)}</span></div></div>
+            <div class="sub"><span>${activa ? "🟢 activa" : "🕒 futura"} · hasta ${fechaCorta(x.fin)}${bonusSem}</span></div></div>
           <button class="btn ghost" data-end="${x.id}" style="width:auto;margin:0;padding:8px 12px">Terminar</button>
         </div>`;
       }).join("")
@@ -626,6 +628,8 @@ function renderAdmin() {
       </select>
       <label class="hint">Factor</label>
       <input id="adm-factor" type="number" step="0.1" min="1" value="2" style="${inputStyle}" />
+      <label class="hint">Bonus semana cumplida (opcional)</label>
+      <input id="adm-bonussem" type="number" min="1" placeholder="p. ej. 30" style="${inputStyle}" />
       <button class="btn" id="adm-lanzar">Lanzar campaña</button>
     </div>
     <div class="card">
@@ -756,6 +760,9 @@ async function lanzarCampana() {
     p_bloquea: $("#adm-bloquea").checked,
     p_deporte: $("#adm-deporte").value || null,
     p_factor: Number($("#adm-factor").value) || 1,
+    // Bonus por cumplir la semana: vacío = semana cumplida normal (5 pts);
+    // poner 30 = en esta campaña cumplir la semana vale 30 pts.
+    p_bonus_semana: (parseInt(document.querySelector("#adm-bonussem").value, 10) || null),
   };
   const { data, error } = await sb.rpc("crear_campana", args);
   if (error) { alert("Error: " + error.message); return; }
