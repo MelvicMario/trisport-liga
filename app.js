@@ -154,11 +154,16 @@ async function loadData() {
       const dia = (t) => (t.capturado_en || "").slice(0, 10);
       const dd = [];
       for (const x of crudas) {
-        const m = Number(x.min) || 0;
-        // mismo día + mismo deporte + tiempo parecido (±12 min) = misma sesión por 2 fuentes
-        const dup = dd.find((b) => disc(b.deporte) === disc(x.deporte)
-          && dia(b) === dia(x)
-          && Math.abs((Number(b.min) || 0) - m) <= 12);
+        const m = Number(x.min) || 0, k = Number(x.km) || 0;
+        // Misma sesión por 2 fuentes: una sin km en bici, o km+tiempo casi idénticos.
+        const dup = dd.find((b) => {
+          if (disc(b.deporte) !== disc(x.deporte) || dia(b) !== dia(x)) return false;
+          const bm = Number(b.min) || 0, bk = Number(b.km) || 0;
+          const unoSinKm = (k === 0) !== (bk === 0);
+          if (unoSinKm && disc(x.deporte) === "bici" && Math.abs(bm - m) <= 12) return true;
+          if (Math.abs(bk - k) <= Math.max(1, 0.08 * Math.max(k, bk)) && Math.abs(bm - m) <= 4) return true;
+          return false;
+        });
         if (dup) {
           // conservar la de más esfuerzo (más km)
           if ((Number(x.km) || 0) > (Number(dup.km) || 0)) Object.assign(dup, x);
