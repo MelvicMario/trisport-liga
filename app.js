@@ -28,7 +28,7 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
-const APP_VERSION = "v35"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v36"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -488,7 +488,28 @@ function desgloseHTML() {
         !d.semana ? "completa <b>3 días</b> esta semana (+5)" : null,
       ].filter(Boolean).join(" · ")}.</p>` : ""}
     <p class="hint" style="margin:8px 0 0">Tu cofre suma esto cada semana, más/menos lo de los piques (robos/duelos).</p>
+    ${detalleDiasHTML(d)}
   </div>`;
+}
+
+// Detalle día a día (transparencia total): qué día, deporte, min/km, racha y puntos.
+function detalleDiasHTML(d) {
+  const det = (d && d.detalle) || [];
+  if (!det.length) return "";
+  const emo = (arr) => (arr || []).map((x) => x === "bici" ? "🚴" : x === "carrera" ? "🏃" : x === "natacion" ? "🏊" : "•").join("") || "•";
+  const rows = det.map((x) => {
+    const sub = [x.km > 0 ? `${fmt(x.km)} km` : null, x.min > 0 ? `${fmt(x.min)} min` : null].filter(Boolean).join(" · ");
+    const multTxt = x.mult > 1 ? ` · racha ×${String(x.mult).replace(".", ",")}` : "";
+    const val = x.puntuable ? `+${x.pts}` : "0 (tope 4 días)";
+    return `<div class="sub" style="justify-content:space-between;display:flex;gap:8px">
+      <span>${emo(x.disc)} ${fechaCorta(x.date)}${sub ? " · " + sub : ""}${multTxt}</span>
+      <span style="font-weight:700;color:${x.puntuable ? "var(--orange-2)" : "var(--muted)"}">${val}</span></div>`;
+  }).join("");
+  return `<details class="guia" style="margin-top:10px"><summary>📅 Detalle día a día</summary>
+    <div class="cuerpo">
+      <p class="hint" style="margin-top:0">Cada día = (12 + volumen) × racha. Solo los 4 primeros días de la semana suman base.</p>
+      ${rows}
+    </div></details>`;
 }
 
 function entrenosHTML() {
@@ -791,7 +812,8 @@ function adminAtletaHTML(inputStyle) {
       ${fila("🏆 Semana cumplida (3+ días)", d.semana)}
       ${fila("👥 Salida de club", d.grupo)}
       <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px"><span style="font-weight:800">Total esta semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total || 0)}</span></div>
-      <div class="sub" style="justify-content:space-between;display:flex"><span class="hint">Total temporada (con piques)</span><span style="font-weight:700">${total}</span></div>`;
+      <div class="sub" style="justify-content:space-between;display:flex"><span class="hint">Total temporada (con piques)</span><span style="font-weight:700">${total}</span></div>
+      ${detalleDiasHTML(d)}`;
   }
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔎 Puntos de un atleta</h2>
