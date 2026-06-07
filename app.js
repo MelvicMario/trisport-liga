@@ -22,6 +22,7 @@ let alianzas = []; // {alianza_id, nombre, emoji}
 let rankAlianzas = []; // {alianza_id, nombre, emoji, miembros, puntos} (ya ordenado)
 let alianzaDe = {}; // {atleta_key: alianza_id}
 let modoAlianzas = false; // config_juego.modo_alianzas
+let miDesglose = null; // desglose de puntos de la semana del atleta actual
 
 boot();
 
@@ -126,7 +127,7 @@ async function loadData() {
     sb.from("retos").select("*"),
     sb.from("alianzas").select("*"),
     sb.from("clasificacion_alianzas").select("*"),
-    sb.from("estado_atleta").select("atleta_key,alianza_id"),
+    sb.from("estado_atleta").select("atleta_key,alianza_id,desglose"),
   ]);
   if (error) { console.error(error); return; }
   clasificacion = (cl || []).sort((a, b) => b.cofre - a.cofre);
@@ -137,6 +138,7 @@ async function loadData() {
   rankAlianzas = rkAli || [];
   alianzaDe = {};
   (estAli || []).forEach((r) => { alianzaDe[r.atleta_key] = r.alianza_id; });
+  miDesglose = (estAli || []).find((r) => r.atleta_key === myAtletaKey)?.desglose || null;
 
   // Últimos entrenos del atleta actual (por nombre).
   const miNombre = (clasificacion.find((a) => a.atleta_key === myAtletaKey) || {}).nombre;
@@ -447,6 +449,23 @@ function emojiDeporte(d) {
   }
 }
 
+function desgloseHTML() {
+  const d = miDesglose;
+  if (!d) return "";
+  const fila = (etq, val, signo) => (val ? `<div class="sub" style="justify-content:space-between;display:flex">
+    <span>${etq}</span><span style="color:var(--orange-2);font-weight:700">${signo || "+"}${val}</span></div>` : "");
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">📊 Tus puntos esta semana</h2>
+    <div class="sub" style="justify-content:space-between;display:flex"><span>🗓️ ${d.dias} día(s) entrenados (base)</span><span style="color:var(--orange-2);font-weight:700">${Math.round(d.base)}</span></div>
+    ${fila("🔀 Variedad (2+ deportes)", d.variedad)}
+    ${fila("🏆 Semana cumplida", d.semana)}
+    ${fila("👥 Salida de club", d.grupo)}
+    <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px">
+      <span style="font-weight:800">Total semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total)}</span></div>
+    <p class="hint" style="margin:8px 0 0">El cofre suma esto cada semana, más/menos lo de los piques.</p>
+  </div>`;
+}
+
 function entrenosHTML() {
   let body;
   if (!misEntrenos.length) {
@@ -550,6 +569,7 @@ function renderBase() {
       ${acciones}
     </div>
     ${caraACaraHTML(m)}
+    ${desgloseHTML()}
     ${entrenosHTML()}`;
 
   // listeners
