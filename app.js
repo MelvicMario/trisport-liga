@@ -109,6 +109,8 @@ async function afterLogin() {
     return;
   }
   myAtletaKey = aKey;
+  // Registra la visita (estadísticas de uso). Silencioso si aún no existe la RPC.
+  try { await sb.rpc("registrar_visita"); } catch (e) {}
 
   // ¿Es administrador? Si lo es, mostramos la pestaña Admin.
   try {
@@ -795,25 +797,43 @@ function adminStatsHTML() {
   const s = adminPanel.stats || {};
   const seg = adminPanel.seguimiento || [];
   const stat = (v, k) => `<div class="stat"><div class="v">${v ?? 0}</div><div class="k">${k}</div></div>`;
-  const sync = s.ultima_sync ? fechaCorta(s.ultima_sync) : "—";
   const estado = (r) => r.entrado ? "🟢 dentro" : (r.autorizado ? "🟡 invitado" : "⚪ no socio");
   const segRows = seg.length ? seg.map((r) => `<div class="row">
       <div class="who"><div class="nm">${r.nombre}</div>
-        <div class="sub"><span>${estado(r)} · ${fmt(r.puntos)} pts · sem ${fmt(r.pl_semana)}${r.email ? " · " + r.email : ""}</span></div></div>
+        <div class="sub"><span>${estado(r)} · ${fmt(r.puntos)} pts · sem ${fmt(r.pl_semana)}${r.visitas ? " · 👁️ " + r.visitas : ""}${r.ultima_visita ? " · " + hace(r.ultima_visita) : ""}</span></div></div>
     </div>`).join("") : `<p class="hint">Sin datos.</p>`;
+  // Indicador de sincronización de Strava: verde si el último recálculo es reciente.
+  const rec = s.ultimo_recalculo ? new Date(s.ultimo_recalculo) : null;
+  const minsRec = rec ? Math.round((Date.now() - rec.getTime()) / 60000) : null;
+  const syncOk = minsRec != null && minsRec <= 130; // cron horario; margen 2h+
+  const syncColor = syncOk ? "var(--ok)" : "var(--orange)";
+  const syncTxt = rec ? hace(s.ultimo_recalculo) : "—";
   return `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:12px;height:12px;border-radius:50%;background:${syncColor};box-shadow:0 0 8px ${syncColor};flex:0 0 auto"></span>
+      <div style="flex:1">
+        <div style="font-weight:800">Strava ${syncOk ? "sincronizado ✅" : "sin sincronizar hace rato ⚠️"}</div>
+        <div class="hint">Último recálculo OK: <b>${syncTxt}</b>${minsRec != null ? ` (${minsRec} min)` : ""}</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
     <h2 class="section" style="margin-top:0">📊 Estadísticas</h2>
     <div class="stat-grid">
       ${stat(s.entrados, "Han entrado")}
-      ${stat(s.autorizados, "Autorizados")}
-      ${stat(s.activos_semana, "Activos sem.")}
+      ${stat(s.activos_hoy, "Activos hoy")}
+      ${stat(s.visitas_total, "Visitas tot.")}
     </div>
     <div class="stat-grid" style="margin-top:8px">
+      ${stat(s.autorizados, "Autorizados")}
+      ${stat(s.activos_semana, "Activos sem.")}
       ${stat(s.atletas, "Atletas")}
+    </div>
+    <div class="stat-grid" style="margin-top:8px">
       ${stat(s.actividades, "Actividades")}
       ${stat(s.act_semana, "Act. sem.")}
+      ${stat(seg.filter((r) => r.autorizado && !r.entrado).length, "Sin entrar")}
     </div>
-    <p class="hint" style="margin:8px 0 0">Última sincronización: <b>${sync}</b></p>
     <button class="btn ghost" id="adm-refresh" style="margin-top:10px">↻ Actualizar</button>
   </div>
   <div class="card">
