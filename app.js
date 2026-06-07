@@ -28,6 +28,7 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
+const APP_VERSION = "v35"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -38,6 +39,7 @@ boot();
 
 async function boot() {
   wireUI();
+  document.querySelectorAll(".appVersion").forEach((e) => { e.textContent = APP_VERSION; });
   const { data: { session } } = await sb.auth.getSession();
   if (session) await afterLogin();
   else showLogin();
@@ -204,7 +206,7 @@ async function loadData() {
   renderBase();
   renderBanner();
   renderAdmin();
-  $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas en la nube.`;
+  $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas · ${APP_VERSION}`;
 }
 
 // ---------- Campañas ----------
