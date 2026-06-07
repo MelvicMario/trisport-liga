@@ -454,15 +454,25 @@ function desgloseHTML() {
   if (!d) return "";
   const fila = (etq, val, signo) => (val ? `<div class="sub" style="justify-content:space-between;display:flex">
     <span>${etq}</span><span style="color:var(--orange-2);font-weight:700">${signo || "+"}${val}</span></div>` : "");
+  // Partimos la base para que se VEA cómo se suma: días×12 + (volumen + racha).
+  const base = Math.round(d.base);
+  const baseDias = (d.dias || 0) * 12;
+  const extraVolRacha = base - baseDias;
   return `<div class="card">
-    <h2 class="section" style="margin-top:0">📊 Tus puntos esta semana</h2>
-    <div class="sub" style="justify-content:space-between;display:flex"><span>🗓️ ${d.dias} día(s) entrenados (base)</span><span style="color:var(--orange-2);font-weight:700">${Math.round(d.base)}</span></div>
+    <h2 class="section" style="margin-top:0">📊 Cómo vas sumando esta semana</h2>
+    <div class="sub" style="justify-content:space-between;display:flex"><span>🗓️ ${d.dias} día(s) × 12 (por entrenar)</span><span style="color:var(--orange-2);font-weight:700">+${baseDias}</span></div>
+    ${extraVolRacha ? `<div class="sub" style="justify-content:space-between;display:flex"><span>💪 Volumen + racha (duración/días seguidos)</span><span style="color:var(--orange-2);font-weight:700">+${extraVolRacha}</span></div>` : ""}
     ${fila("🔀 Variedad (2+ deportes)", d.variedad)}
-    ${fila("🏆 Semana cumplida", d.semana)}
+    ${fila("🏆 Semana cumplida (3+ días)", d.semana)}
     ${fila("👥 Salida de club", d.grupo)}
     <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px">
       <span style="font-weight:800">Total semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total)}</span></div>
-    <p class="hint" style="margin:8px 0 0">El cofre suma esto cada semana, más/menos lo de los piques.</p>
+    ${(!d.variedad || !d.grupo || !d.semana) ? `<p class="hint" style="margin:8px 0 0">💡 Te falta sumar: ${[
+        !d.variedad ? "entrena <b>2+ deportes</b> (+4)" : null,
+        !d.grupo ? "haz una <b>salida de club</b> (+4)" : null,
+        !d.semana ? "completa <b>3 días</b> esta semana (+5)" : null,
+      ].filter(Boolean).join(" · ")}.</p>` : ""}
+    <p class="hint" style="margin:8px 0 0">Tu cofre suma esto cada semana, más/menos lo de los piques (robos/duelos).</p>
   </div>`;
 }
 
@@ -534,12 +544,19 @@ function renderBase() {
     const a = (id, ico, t, cost) =>
       `<button class="act" data-acc="${id}" ${E < cost ? "disabled" : ""}>
         <div class="ico">${ico}</div><div class="t">${t}</div><div class="cost">−${cost} energía</div></button>`;
+    // Robo y duelo solo si los ataques están habilitados en la liga.
+    const ofensivas = ataquesOn
+      ? `${a("robo", "🥷", "Robo", COSTE.robo)}
+      ${a("duelo", "⚔️", "Duelo", COSTE.duelo)}`
+      : "";
+    const treguaMsg = ataquesOn
+      ? ""
+      : `<p class="hint" style="margin-top:10px">🕊️ <b>Ataques bloqueados</b> en la liga: robos y duelos están desactivados. Refuerza tu castillo con 🛡️ Escudo y ⚡ Sprint.</p>`;
     acciones = `<div class="actions">
       ${a("escudo", "🛡️", "Escudo", COSTE.escudo)}
       ${a("sprint", "⚡", "Sprint", COSTE.sprint)}
-      ${a("robo", "🥷", "Robo", COSTE.robo)}
-      ${a("duelo", "⚔️", "Duelo", COSTE.duelo)}
-    </div>`;
+      ${ofensivas}
+    </div>${treguaMsg}`;
   }
 
   c.innerHTML = `
@@ -585,6 +602,10 @@ function renderBase() {
 }
 
 function onAccion(tipo) {
+  if ((tipo === "robo" || tipo === "duelo") && !ataquesOn) {
+    alert("Los ataques están bloqueados en la liga ahora mismo.");
+    return;
+  }
   if (tipo === "escudo" || tipo === "sprint") {
     if (confirm(tipo === "escudo" ? "¿Activar escudo esta semana?" : "¿Usar sprint? Multiplica tus puntos de la semana.")) doAccion(tipo);
   } else {
