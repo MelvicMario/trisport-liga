@@ -23,6 +23,10 @@ let rankAlianzas = []; // {alianza_id, nombre, emoji, miembros, puntos} (ya orde
 let alianzaDe = {}; // {atleta_key: alianza_id}
 let modoAlianzas = false; // config_juego.modo_alianzas
 let miDesglose = null; // desglose de puntos de la semana del atleta actual
+let adminPanel = null;   // {stats, seguimiento} del RPC admin_panel (solo admin)
+let adminActs = null;    // actividades sincronizadas recientes (panel admin)
+let adminActFiltro = ""; // texto del buscador de actividades
+let adminCargando = false;
 
 boot();
 
@@ -620,6 +624,9 @@ function renderAdmin() {
   if (!c) return;
   if (!soyAdmin) { c.innerHTML = ""; return; }
 
+  // Carga perezosa de las estadísticas/seguimiento + actividades (una vez).
+  if (adminPanel === null && !adminCargando) { adminCargando = true; loadAdminPanel(); }
+
   const inputStyle = "width:100%;padding:11px;border-radius:12px;font-size:15px;background:var(--navy-2);color:#fff;border:1px solid rgba(255,255,255,.14);margin:6px 0 12px";
 
   // Campañas activas y futuras (las que aún no han terminado).
@@ -646,6 +653,8 @@ function renderAdmin() {
     : `<p class="hint">No hay campañas activas ni programadas.</p>`;
 
   c.innerHTML = `
+    ${adminStatsHTML()}
+    ${adminActsHTML(inputStyle)}
     <div class="card">
       <h2 class="section" style="margin-top:0">Lanzar campaña</h2>
       <label class="hint">Título</label>
@@ -692,7 +701,91 @@ function renderAdmin() {
   $$("button[data-end]").forEach((b) =>
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
   $("#adm-ataques")?.addEventListener("click", toggleAtaques);
+  $("#adm-refresh")?.addEventListener("click", () => {
+    adminPanel = null; adminActs = null; adminCargando = true; loadAdminPanel();
+  });
+  const buscador = $("#adm-act-buscar");
+  if (buscador) buscador.addEventListener("input", (e) => {
+    adminActFiltro = e.target.value;
+    const f = adminActFiltro.trim().toLowerCase();
+    let visibles = 0;
+    $$(".act-row").forEach((row) => {
+      const ok = !f || (row.dataset.s || "").includes(f);
+      row.style.display = ok ? "" : "none";
+      if (ok) visibles++;
+    });
+    const cont = $("#adm-act-count");
+    if (cont) cont.textContent = visibles;
+  });
   wireAlianzasAdmin();
+}
+
+// Carga estadísticas + seguimiento (RPC admin) y las últimas actividades sincronizadas.
+async function loadAdminPanel() {
+  try {
+    const { data } = await sb.rpc("admin_panel");
+    adminPanel = data && data.ok ? data : { stats: {}, seguimiento: [] };
+  } catch (e) { adminPanel = { stats: {}, seguimiento: [] }; }
+  try {
+    const { data } = await sb.from("actividades")
+      .select("atleta_nombre,deporte,nombre,km,min,elev,capturado_en")
+      .order("capturado_en", { ascending: false }).limit(500);
+    adminActs = data || [];
+  } catch (e) { adminActs = []; }
+  adminCargando = false;
+  renderAdmin();
+}
+
+function adminStatsHTML() {
+  if (adminPanel === null) return `<div class="card"><p class="hint">Cargando estadísticas…</p></div>`;
+  const s = adminPanel.stats || {};
+  const seg = adminPanel.seguimiento || [];
+  const stat = (v, k) => `<div class="stat"><div class="v">${v ?? 0}</div><div class="k">${k}</div></div>`;
+  const sync = s.ultima_sync ? fechaCorta(s.ultima_sync) : "—";
+  const estado = (r) => r.entrado ? "🟢 dentro" : (r.autorizado ? "🟡 invitado" : "⚪ no socio");
+  const segRows = seg.length ? seg.map((r) => `<div class="row">
+      <div class="who"><div class="nm">${r.nombre}</div>
+        <div class="sub"><span>${estado(r)} · ${fmt(r.puntos)} pts · sem ${fmt(r.pl_semana)}${r.email ? " · " + r.email : ""}</span></div></div>
+    </div>`).join("") : `<p class="hint">Sin datos.</p>`;
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">📊 Estadísticas</h2>
+    <div class="stat-grid">
+      ${stat(s.entrados, "Han entrado")}
+      ${stat(s.autorizados, "Autorizados")}
+      ${stat(s.activos_semana, "Activos sem.")}
+    </div>
+    <div class="stat-grid" style="margin-top:8px">
+      ${stat(s.atletas, "Atletas")}
+      ${stat(s.actividades, "Actividades")}
+      ${stat(s.act_semana, "Act. sem.")}
+    </div>
+    <p class="hint" style="margin:8px 0 0">Última sincronización: <b>${sync}</b></p>
+    <button class="btn ghost" id="adm-refresh" style="margin-top:10px">↻ Actualizar</button>
+  </div>
+  <div class="card">
+    <h2 class="section" style="margin-top:0">👤 Seguimiento de socios (${seg.length})</h2>
+    ${segRows}
+  </div>`;
+}
+
+function adminActsHTML(inputStyle) {
+  if (adminActs === null) return "";
+  const rows = adminActs.map((a) => {
+    const km = Number(a.km) || 0, min = Number(a.min) || 0;
+    const det = [km > 0 ? `${fmt(km)} km` : null, min > 0 ? `${fmt(min)} min` : null].filter(Boolean).join(" · ");
+    const s = `${a.atleta_nombre || ""} ${a.nombre || ""} ${a.deporte || ""}`.toLowerCase();
+    return `<div class="row act-row" data-s="${s.replace(/"/g, "")}">
+      <div class="who"><div class="nm">${emojiDeporte(a.deporte)} ${a.atleta_nombre || "—"}</div>
+        <div class="sub"><span>${a.nombre || a.deporte || "Entreno"}${det ? " · " + det : ""}</span></div></div>
+      <div class="cofre"><small>${fechaCorta(a.capturado_en)}</small></div>
+    </div>`;
+  }).join("");
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🗂️ Actividades sincronizadas (<span id="adm-act-count">${adminActs.length}</span>)</h2>
+    <input id="adm-act-buscar" type="text" placeholder="Buscar atleta / deporte…" value="${adminActFiltro}" style="${inputStyle}" />
+    ${rows || `<p class="hint">Sin actividades.</p>`}
+    <p class="hint" style="margin:8px 0 0">Se muestran las últimas 500 sincronizadas (más recientes primero).</p>
+  </div>`;
 }
 
 function alianzasAdminHTML(inputStyle) {
