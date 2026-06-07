@@ -170,3 +170,13 @@ nav.tabs button {
 }
 nav.tabs button .ic { font-size: 20px; }
 nav.tabs button.active { color: var(--orange); }
+
+/* Guía "Cómo se juega" por secciones plegables */
+.guia { background: var(--navy-2); border: 1px solid rgba(255,255,255,.10); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+.guia > summary { list-style: none; cursor: pointer; padding: 14px 16px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: space-between; }
+.guia > summary::-webkit-details-marker { display: none; }
+.guia > summary::after { content: "▸"; color: var(--orange); font-size: 16px; transition: transform .15s; }
+.guia[open] > summary::after { transform: rotate(90deg); }
+.guia .cuerpo { padding: 0 16px 14px; }
+.guia .cuerpo p { margin: 6px 0; color: #dfe7f3; font-size: 14px; line-height: 1.5; }
+.guia .cuerpo .ej { background: rgba(255,106,19,.10); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }

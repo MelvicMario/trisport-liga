@@ -69,38 +69,77 @@
       <!-- CÓMO SE JUEGA -->
       <section id="view-help" class="view help">
         <h2 class="section">Cómo se juega</h2>
-        <div class="card"><p>La liga premia <b>la constancia y la participación</b>, no quién hace más
-          kilómetros. Entrenar genera <b>Puntos de Liga</b> (tu posición) y <b>Energía</b> para acciones.</p></div>
-        <div class="card">
-          <p>🛡️ <b>Escudo</b> — reduce lo que te roban.</p>
-          <p>🥷 <b>Robo</b> — te llevas parte de lo que ganó un rival.</p>
-          <p>⚔️ <b>Duelo</b> — reto 1v1 a quien sume más esa semana.</p>
-          <p>⚡ <b>Sprint</b> — multiplica tus puntos de la semana.</p>
-        </div>
-        <div class="card">
-          <h2 class="section" style="margin-top:0">📊 Cómo se cuentan los puntos</h2>
-          <p><b>No puntúan los kilómetros, puntúa la CONSTANCIA.</b> Da igual si haces 5 km o 50:
-            lo que manda es aparecer a entrenar día tras día.</p>
-          <p style="font-weight:700;margin-bottom:4px">Cada día válido (mín. 15 min o 3 km) suma:</p>
-          <p>🗓️ <b>12 puntos</b> solo por entrenar ese día.</p>
-          <p>💪 <b>+ hasta 4</b> por la <b>duración</b>: <b>40 min o más = +4</b> (tope); menos,
-            proporcional (20 min ≈ +2). Hagas 40 min o 3 horas, el extra es el mismo →
-            <b>no compensa machacarse</b>.</p>
-          <p>🔥 <b>× racha</b>: un pelín más (hasta +15%) si entrenas días seguidos.</p>
-          <div class="card" style="background:rgba(255,106,19,.10);margin:8px 0">
-            <p style="margin:0"><b>Ejemplo:</b> un día de 40 min = <b>12 + 4 = 16 puntos</b> (no 12).
-            Tres días así ≈ <b>50 puntos</b> a la semana.</p>
+        <p class="hint" style="margin-top:0">Toca cada apartado para desplegarlo. 👇</p>
+
+        <details class="guia" open><summary>🎯 ¿Qué es la TriSport Liga?</summary>
+          <div class="cuerpo">
+            <p>Una liga del club que premia <b>la constancia y la participación</b>, NO quién hace más kilómetros.</p>
+            <p>Entrenar te da dos cosas:</p>
+            <p>🏰 <b>Puntos de Liga</b> → tu posición en la clasificación (tu "cofre").</p>
+            <p>⚡ <b>Energía</b> → la munición para tus jugadas (atacar, defender…).</p>
+            <p>Todo es <b>automático desde tu Strava</b>: tú entrena, la liga hace el resto.</p>
           </div>
-          <p style="font-weight:700;margin-bottom:4px">Y bonus por semana:</p>
-          <p>🏆 <b>Semana cumplida</b> (3 o más días entrenando): <b>+5 puntos</b>.</p>
-          <p>🔀 <b>Variedad</b>: <b>+4</b> por entrenar 2 o más deportes (nadar/bici/correr).</p>
-          <p>👥 <b>Salida de club</b>: <b>+4</b>.</p>
-          <p>4️⃣ Solo cuentan <b>hasta 4 días por semana</b> para los puntos base — entrenar a diario
-            no dispara la puntuación.</p>
-          <p class="hint" style="margin:10px 0 0">En resumen: <b>gana quien entrena 3-4 días casi
-            todas las semanas y varía de deporte</b>, no quien hace tiradas enormes de vez en cuando.
-            Mira tu desglose en <b>Mi Castillo → 📊 Cómo vas sumando</b>.</p>
-        </div>
+        </details>
+
+        <details class="guia"><summary>🏰 Tus puntos (construir el castillo)</summary>
+          <div class="cuerpo">
+            <p><b>No cuentan los km, cuenta APARECER.</b> Cada <b>día válido</b> (mín. 15 min o 3 km) suma:</p>
+            <p>🗓️ <b>12 puntos</b> por entrenar ese día.</p>
+            <p>💪 <b>+ hasta 4</b> por duración: <b>40 min o más = +4</b> (tope); menos, proporcional (20 min ≈ +2).</p>
+            <p>🔥 <b>× racha</b>: hasta +15% si entrenas días seguidos.</p>
+            <div class="ej"><p style="margin:0"><b>Ejemplo:</b> un día de 40 min = <b>12 + 4 = 16 puntos</b>. Tres días así ≈ <b>50</b> a la semana.</p></div>
+            <p>Bonus de la semana:</p>
+            <p>🏆 <b>Semana cumplida</b> (3+ días): <b>+5</b></p>
+            <p>🔀 <b>Variedad</b> (2+ deportes): <b>+4</b></p>
+            <p>👥 <b>Salida de club</b>: <b>+4</b></p>
+            <p>4️⃣ Solo cuentan <b>hasta 4 días/semana</b> para la base (entrenar a diario no dispara los puntos).</p>
+            <p class="hint">Verás tu desglose en <b>Mi Castillo → 📊 Cómo vas sumando</b>.</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>⚡ La energía</summary>
+          <div class="cuerpo">
+            <p>🔋 <b>1 de energía por cada día que entrenas</b> (día válido).</p>
+            <p>📅 Máximo <b>5 por semana</b> · se <b>renueva cada lunes</b>.</p>
+            <p>La gastas en tus jugadas: 🛡️ Escudo (2) · ⚡ Sprint (3) · 🥷 Robo (3) · ⚔️ Duelo (2).</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>🛡️ Defender (Escudo)</summary>
+          <div class="cuerpo">
+            <p>Cuesta <b>2 de energía</b> y te da <b>+3 cargas de defensa</b> (máximo 6).</p>
+            <p>Cada robo que recibas con cargas se <b>repele</b>: el atacante falla, se queda debilitado y tú gastas 1 carga.</p>
+            <p>Solo tú ves tus cargas. 🤫</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>🥷 Robar</summary>
+          <div class="cuerpo">
+            <p>Cuesta <b>3 de energía</b>. Le quitas parte de los puntos de la semana a un rival de tu división.</p>
+            <p>⚠️ Es una <b>apuesta</b>: no sabes si está defendido. Si lo está, tu robo <b>falla</b> y quedas debilitado (−15).</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>⚔️ Duelo y 🤝 Cara a Cara</summary>
+          <div class="cuerpo">
+            <p><b>⚔️ Duelo</b> (acción): cuesta <b>2 de energía</b>, <b>inmediato</b>. Gana quien más puntos lleve esa semana.</p>
+            <p><b>🤝 Cara a Cara</b> (reto): <b>NO cuesta energía</b>. Apuestas <b>puntos</b> (10–100) y se resuelve <b>al final de la semana</b>: gana quien más sume durante el reto.</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>👥 Alianzas y 📣 campañas</summary>
+          <div class="cuerpo">
+            <p>🤝 <b>Alianzas</b>: uníos varios para sumar fuerzas y aparecer en la clasificación por equipos.</p>
+            <p>📣 <b>Campañas</b>: retos especiales del club con premios extra (a veces bloquean ataques = tregua).</p>
+          </div>
+        </details>
+
+        <details class="guia"><summary>🏆 Cómo ganar</summary>
+          <div class="cuerpo">
+            <p>Gana quien entrena <b>3–4 días casi cada semana y varía de deporte</b>, no quien hace tiradas enormes de vez en cuando.</p>
+            <p>Suma constancia + variedad + una buena jugada de energía (sprint/robo) y a conquistar. 🔥</p>
+          </div>
+        </details>
         <div class="card" style="text-align:center">
           <div style="color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Patrocinador oficial de la liga</div>
           <span style="display:inline-block;background:#fff;border-radius:12px;padding:14px 22px">
