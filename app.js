@@ -28,6 +28,7 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
+let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 
 boot();
 
@@ -658,7 +659,7 @@ function renderAdmin() {
       <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
     </div>`;
 
-  const panelHTML = `${adminStatsHTML()}${adminActsHTML(inputStyle)}`;
+  const panelHTML = `${adminStatsHTML()}${adminLogHTML()}${adminActsHTML(inputStyle)}`;
 
   const configHTML = `
     <div class="card">
@@ -712,7 +713,7 @@ function renderAdmin() {
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
   $("#adm-ataques")?.addEventListener("click", toggleAtaques);
   $("#adm-refresh")?.addEventListener("click", () => {
-    adminPanel = null; adminActs = null; adminCargando = true; loadAdminPanel();
+    adminPanel = null; adminActs = null; adminEventos = null; adminCargando = true; loadAdminPanel();
   });
   const buscador = $("#adm-act-buscar");
   if (buscador) buscador.addEventListener("input", (e) => {
@@ -742,8 +743,27 @@ async function loadAdminPanel() {
       .order("capturado_en", { ascending: false }).limit(500);
     adminActs = data || [];
   } catch (e) { adminActs = []; }
+  try {
+    const { data } = await sb.from("eventos").select("*")
+      .order("creado_en", { ascending: false }).limit(100);
+    adminEventos = data || [];
+  } catch (e) { adminEventos = []; }
   adminCargando = false;
   renderAdmin();
+}
+
+function adminLogHTML() {
+  if (adminEventos === null) return "";
+  const ico = { escudo: "🛡️", sprint: "⚡", robo: "🥷", duelo: "⚔️", fallido: "🛡️", reto: "🤝" };
+  const rows = adminEventos.length ? adminEventos.map((e) => `<div class="row">
+      <div class="who"><div class="nm">${ico[e.tipo] || "•"} ${noticiaTexto(e)}</div>
+        <div class="sub"><span>${hace(e.creado_en)}${e.amount ? " · " + fmt(e.amount) + " pts" : ""}</span></div></div>
+    </div>`).join("") : `<p class="hint">Sin acciones registradas todavía.</p>`;
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">📜 Registro de acciones (${adminEventos.length})</h2>
+    ${rows}
+    <p class="hint" style="margin:8px 0 0">Últimos 100 movimientos: escudos, sprints, robos y duelos de toda la liga.</p>
+  </div>`;
 }
 
 function adminStatsHTML() {
