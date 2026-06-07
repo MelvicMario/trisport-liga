@@ -1,5 +1,5 @@
 // Service worker mínimo para que la app sea instalable y funcione offline.
-const CACHE = "trisport-liga-v21";
+const CACHE = "trisport-liga-v22";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,7 +8,7 @@ const ASSETS = [
   "./config.js",
   "./manifest.json",
   "./icon.svg",
-  "./ifer.svg",
+  "./ifer.jpg",
 ];
 
 self.addEventListener("install", (e) => {
