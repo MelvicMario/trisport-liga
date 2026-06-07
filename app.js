@@ -29,6 +29,7 @@ let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
+let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
 
 boot();
 
@@ -659,7 +660,7 @@ function renderAdmin() {
       <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
     </div>`;
 
-  const panelHTML = `${adminStatsHTML()}${adminLogHTML()}${adminActsHTML(inputStyle)}`;
+  const panelHTML = `${adminStatsHTML()}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
 
   const configHTML = `
     <div class="card">
@@ -713,7 +714,7 @@ function renderAdmin() {
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
   $("#adm-ataques")?.addEventListener("click", toggleAtaques);
   $("#adm-refresh")?.addEventListener("click", () => {
-    adminPanel = null; adminActs = null; adminEventos = null; adminCargando = true; loadAdminPanel();
+    adminPanel = null; adminActs = null; adminEventos = null; adminDuplicados = null; adminCargando = true; loadAdminPanel();
   });
   const buscador = $("#adm-act-buscar");
   if (buscador) buscador.addEventListener("input", (e) => {
@@ -748,8 +749,28 @@ async function loadAdminPanel() {
       .order("creado_en", { ascending: false }).limit(100);
     adminEventos = data || [];
   } catch (e) { adminEventos = []; }
+  try {
+    const { data } = await sb.from("duplicados").select("*")
+      .order("detectado_en", { ascending: false }).limit(100);
+    adminDuplicados = data || [];
+  } catch (e) { adminDuplicados = []; }
   adminCargando = false;
   renderAdmin();
+}
+
+function adminDupHTML() {
+  if (adminDuplicados === null) return "";
+  const ico = { bici: "🚴", carrera: "🏃", natacion: "🏊" };
+  const rows = adminDuplicados.length ? adminDuplicados.map((d) => `<div class="row" style="align-items:flex-start">
+      <div class="who"><div class="nm">${ico[d.disc] || "•"} ${d.atleta_nombre} · ${fechaCorta(d.dia)}</div>
+        <div class="sub"><span>✅ queda: "${d.keep_titulo}" ${fmt(d.keep_km)}km/${fmt(d.keep_min)}min<br>
+        🗑️ quitado: "${d.drop_titulo}" ${fmt(d.drop_km)}km/${fmt(d.drop_min)}min</span></div></div>
+    </div>`).join("") : `<p class="hint">No se ha eliminado ningún duplicado todavía (se registran a partir de ahora).</p>`;
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🔁 Duplicados eliminados (${adminDuplicados.length})</h2>
+    ${rows}
+    <p class="hint" style="margin:8px 0 0">Cuando una misma sesión se sube por 2 fuentes (p. ej. Garmin + Zwift), el sync deja la de más esfuerzo y descarta la otra.</p>
+  </div>`;
 }
 
 function adminLogHTML() {
