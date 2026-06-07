@@ -151,13 +151,18 @@ async function loadData() {
       // Quita duplicados de la misma sesión (Garmin + Zwift) para la lista.
       const crudas = acts || [];
       const disc = (s) => /swim/i.test(s) ? "nadar" : /ride/i.test(s) ? "bici" : /run/i.test(s) ? "correr" : "otro";
+      const dia = (t) => (t.capturado_en || "").slice(0, 10);
       const dd = [];
       for (const x of crudas) {
-        const m = Number(x.min) || 0, k = Number(x.km) || 0;
+        const m = Number(x.min) || 0;
+        // mismo día + mismo deporte + tiempo parecido (±12 min) = misma sesión por 2 fuentes
         const dup = dd.find((b) => disc(b.deporte) === disc(x.deporte)
-          && Math.abs((Number(b.min) || 0) - m) <= 8
-          && Math.abs((Number(b.km) || 0) - k) <= Math.max(1.5, 0.1 * Math.max(k, Number(b.km) || 0)));
-        if (!dup) dd.push(x);
+          && dia(b) === dia(x)
+          && Math.abs((Number(b.min) || 0) - m) <= 12);
+        if (dup) {
+          // conservar la de más esfuerzo (más km)
+          if ((Number(x.km) || 0) > (Number(dup.km) || 0)) Object.assign(dup, x);
+        } else dd.push(x);
       }
       misEntrenos = dd.slice(0, 5);
     } catch (e) { misEntrenos = []; }
