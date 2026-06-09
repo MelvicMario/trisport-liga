@@ -28,7 +28,7 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
-const APP_VERSION = "v36"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v37"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -60,6 +60,11 @@ function wireUI() {
       $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x === b));
       $$(".view").forEach((v) => v.classList.remove("active"));
       $(`#view-${b.dataset.view}`).classList.add("active");
+      // Al abrir Admin, refresca los datos del panel (indicador de sync, stats…) para no ver datos viejos.
+      if (b.dataset.view === "admin" && soyAdmin) {
+        adminPanel = null; adminActs = null; adminEventos = null;
+        adminDuplicados = null; adminCargando = true; loadAdminPanel();
+      }
     })
   );
   $$("#rankSeg button").forEach((b) =>
@@ -864,7 +869,7 @@ function adminStatsHTML() {
   // Indicador de sincronización de Strava: verde si el último recálculo es reciente.
   const rec = s.ultimo_recalculo ? new Date(s.ultimo_recalculo) : null;
   const minsRec = rec ? Math.round((Date.now() - rec.getTime()) / 60000) : null;
-  const syncOk = minsRec != null && minsRec <= 130; // cron horario; margen 2h+
+  const syncOk = minsRec != null && minsRec <= 180; // cron horario best-effort; margen 3h para no dar falsas alarmas
   const syncColor = syncOk ? "var(--ok)" : "var(--orange)";
   const syncTxt = rec ? hace(s.ultimo_recalculo) : "—";
   return `<div class="card">
