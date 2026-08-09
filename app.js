@@ -1,6 +1,6 @@
 // TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, STRAVA_CLIENT_ID } from "./config.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -28,7 +28,11 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
-const APP_VERSION = "v37"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del socio actual
+let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
+let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
+const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
+const APP_VERSION = "v38"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -39,6 +43,7 @@ boot();
 
 async function boot() {
   wireUI();
+  capturarRetornoStrava();
   document.querySelectorAll(".appVersion").forEach((e) => { e.textContent = APP_VERSION; });
   const { data: { session } } = await sb.auth.getSession();
   if (session) await afterLogin();
@@ -121,6 +126,10 @@ async function afterLogin() {
   // Registra la visita (estadísticas de uso). Silencioso si aún no existe la RPC.
   try { await sb.rpc("registrar_visita"); } catch (e) {}
 
+  // Vuelta del OAuth de Strava (si el socio acaba de autorizar) + estado de su conexión.
+  if (pendingStravaCode) { await canjearStrava(pendingStravaCode); pendingStravaCode = null; }
+  await cargarMiStrava();
+
   // ¿Es administrador? Si lo es, mostramos la pestaña Admin.
   try {
     const { data: admin } = await sb.rpc("soy_admin");
@@ -135,6 +144,139 @@ async function afterLogin() {
   $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "news"));
   $$(".view").forEach((v) => v.classList.remove("active"));
   $("#view-news").classList.add("active");
+}
+
+// ---------- Strava del socio ----------
+// El feed del club NO trae la fecha del entreno: hasta ahora el día era el día en que el
+// robot veía la actividad, así que quien subía tarde perdía días. Conectando tu Strava
+// leemos start_date_local: la fecha real, y se recolocan también tus entrenos anteriores.
+
+/** Guarda el ?code= de Strava (y limpia la URL) distinguiéndolo del ?code= de Supabase. */
+function capturarRetornoStrava() {
+  const p = new URLSearchParams(location.search);
+  if (p.get("state") !== STRAVA_STATE) return;
+  if (p.get("error")) {
+    stravaMsg = "No autorizaste el acceso en Strava. Puedes intentarlo cuando quieras.";
+  } else if (p.get("code")) {
+    pendingStravaCode = p.get("code");
+    // Sin activity:read no podemos leer nada; avisamos en vez de fallar en silencio.
+    if (!(p.get("scope") || "").includes("activity:read")) {
+      stravaMsg = "Falta el permiso de lectura de actividades: vuelve a conectar y deja marcada la casilla.";
+      pendingStravaCode = null;
+    }
+  }
+  history.replaceState({}, "", location.origin + location.pathname);
+}
+
+async function cargarMiStrava() {
+  try {
+    const { data } = await sb.rpc("mi_strava");
+    miStrava = data || { conectado: false };
+  } catch (e) { miStrava = null; } // RPC aún no desplegada: la tarjeta no se muestra
+}
+
+function conectarStrava() {
+  if (!STRAVA_CLIENT_ID) {
+    alert("Falta configurar el Client ID de Strava en la app. Avisa al admin.");
+    return;
+  }
+  const url = new URL("https://www.strava.com/oauth/authorize");
+  url.searchParams.set("client_id", STRAVA_CLIENT_ID);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("redirect_uri", location.origin + location.pathname);
+  url.searchParams.set("approval_prompt", "auto");
+  url.searchParams.set("scope", "activity:read"); // solo leer actividades; nada de escribir
+  url.searchParams.set("state", STRAVA_STATE);
+  location.href = url.toString();
+}
+
+async function canjearStrava(code) {
+  stravaMsg = "Conectando con Strava…";
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/strava-oauth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ code, scope: "activity:read" }),
+    });
+    const out = await r.json().catch(() => ({}));
+    stravaMsg = r.ok
+      ? "Strava conectado. En la próxima sincronización tus entrenos se recolocan con su fecha real."
+      : `No se pudo conectar: ${out.error || r.status}`;
+  } catch (e) {
+    stravaMsg = "No se pudo conectar con Strava: " + e.message;
+  }
+}
+
+async function desconectarStrava() {
+  if (!confirm("¿Desconectar tu Strava? Dejaremos de leer tus actividades nuevas.")) return;
+  try {
+    await sb.rpc("desconectar_strava");
+    stravaMsg = "Strava desconectado.";
+    await cargarMiStrava();
+    renderBase();
+  } catch (e) { alert("No se pudo desconectar: " + e.message); }
+}
+
+function stravaHTML() {
+  if (!miStrava) return ""; // backend sin la RPC todavía
+  const aviso = stravaMsg ? `<p class="hint" style="margin:10px 0 0">${stravaMsg}</p>` : "";
+  if (miStrava.conectado) {
+    const quien = miStrava.nombre_strava ? ` como <b>${miStrava.nombre_strava}</b>` : "";
+    const n = miStrava.actividades || 0;
+    return `<div class="card">
+      <h2 class="section" style="margin-top:0">🔗 Strava</h2>
+      <p class="hint" style="margin-top:0">✅ Conectado${quien}. Tus entrenos entran con su
+        <b>fecha real</b>${n ? ` (${n} ya recolocados)` : ""}, aunque los subas días después.</p>
+      <button class="btn ghost" id="stravaOff" style="margin-top:10px">Desconectar</button>
+      ${aviso}
+      ${poweredByStrava()}
+    </div>`;
+  }
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🔗 Conecta tu Strava</h2>
+    <p class="hint" style="margin-top:0">Sin conectar, la liga solo ve tus actividades por el feed
+      del club, que <b>no dice qué día entrenaste</b>: cuentan el día en que las detectamos. Si subes
+      tarde o metes la actividad a mano, se te juntan dos entrenos en un día. Conectando tu Strava
+      leemos la fecha real y recolocamos también los entrenos que ya tienes.</p>
+    <a href="#" id="stravaOn" style="display:inline-block;margin-top:10px" aria-label="Conectar con Strava">
+      <img src="./img/strava-connect.svg" alt="Conectar con Strava" style="height:48px;display:block">
+    </a>
+    <p class="hint" style="margin:10px 0 0">Permiso de <b>solo lectura</b> de tus actividades.
+      Puedes desconectarlo desde aquí cuando quieras.</p>
+    ${aviso}
+    ${poweredByStrava()}
+  </div>`;
+}
+
+// Marca de Strava. Sus brand guidelines lo exigen alli donde se muestran sus datos, y es
+// criterio de la revision con la que se pide ampliar la capacidad de atletas. Los assets
+// son los OFICIALES descargados de developers.strava.com/guidelines: no se retocan ni se
+// recolorean, y van separados de la marca del club.
+// Mientras no este el SVG oficial, cae a texto plano. "Powered by Strava" como texto SI
+// cumple sus guidelines (es la formula que permiten para citar interoperabilidad); lo que
+// no se puede es recrear o retocar su logo. Cuando el fichero exista, se ve el logo solo.
+function poweredByStrava() {
+  return `<p style="margin:14px 0 0">
+    <img class="stravaPwrd" src="./img/strava-powered.svg" alt="Powered by Strava"
+         style="height:20px;opacity:.9">
+  </p>`;
+}
+
+/** Si aun no esta el SVG oficial, lo sustituye por el texto en vez de dejar la imagen rota. */
+function wireStravaLogo() {
+  document.querySelectorAll("img.stravaPwrd").forEach((img) => {
+    const aTexto = () => {
+      const s = document.createElement("span");
+      s.className = "hint";
+      s.style.letterSpacing = ".04em";
+      s.textContent = "Powered by Strava";
+      img.replaceWith(s);
+    };
+    // El error puede haber saltado ya (404 rapido) antes de llegar aqui: se comprueba tambien.
+    img.addEventListener("error", aTexto);
+    if (img.complete && img.naturalWidth === 0) aTexto();
+  });
 }
 
 async function loadData() {
@@ -165,15 +307,18 @@ async function loadData() {
     try {
       const { data: acts } = await sb
         .from("actividades")
-        .select("deporte,nombre,km,min,elev,capturado_en")
+        .select("deporte,nombre,km,min,elev,capturado_en,fecha_actividad,fuente")
         .eq("atleta_nombre", miNombre)
-        .gte("capturado_en", SEASON_START)
-        .order("capturado_en", { ascending: false })
+        // Fuera lo que no puntua: 'club_obsoleto' (ya sustituidas por su equivalente con
+        // fecha real) y 'duplicado_elev' (refilas del recalculo de desnivel de Strava).
+        .not("fuente", "in", "(club_obsoleto,duplicado_elev)")
+        .gte("fecha_actividad", SEASON_START)
+        .order("fecha_actividad", { ascending: false })
         .limit(20);
       // Quita duplicados de la misma sesión (Garmin + Zwift) para la lista.
       const crudas = acts || [];
       const disc = (s) => /swim/i.test(s) ? "nadar" : /ride/i.test(s) ? "bici" : /run/i.test(s) ? "correr" : "otro";
-      const dia = (t) => (t.capturado_en || "").slice(0, 10);
+      const dia = (t) => (t.fecha_actividad || t.capturado_en || "").slice(0, 10);
       const dd = [];
       for (const x of crudas) {
         const m = Number(x.min) || 0, k = Number(x.km) || 0;
@@ -534,7 +679,7 @@ function entrenosHTML() {
       const detalle = partes.join(" · ");
       return `<div class="row">
         <div class="who"><div class="nm">${emojiDeporte(e.deporte)} ${titulo}</div>
-          <div class="sub"><span>${fechaCorta(e.capturado_en)}${detalle ? " · " + detalle : ""}</span></div></div>
+          <div class="sub"><span>${fechaCorta(e.fecha_actividad || e.capturado_en)}${detalle ? " · " + detalle : ""}</span></div></div>
         <div class="cofre">≈ ${puntos}<small>pts</small></div>
       </div>`;
     }).join("");
@@ -628,9 +773,14 @@ function renderBase() {
     </div>
     ${caraACaraHTML(m)}
     ${desgloseHTML()}
-    ${entrenosHTML()}`;
+    ${entrenosHTML()}
+    ${stravaHTML()}`;
 
   // listeners
+  // El boton es el asset oficial de Strava dentro de un <a>: hay que frenar la navegacion.
+  $("#stravaOn")?.addEventListener("click", (e) => { e.preventDefault(); conectarStrava(); });
+  wireStravaLogo();
+  $("#stravaOff")?.addEventListener("click", desconectarStrava);
   $$(".act[data-acc]").forEach((b) => b.addEventListener("click", () => onAccion(b.dataset.acc)));
   wireCaraACara();
   const conf = $("#confirmAcc"), canc = $("#cancelAcc");
@@ -775,9 +925,12 @@ async function loadAdminPanel() {
   } catch (e) { adminPanel = { stats: {}, seguimiento: [] }; }
   try {
     const { data } = await sb.from("actividades")
-      .select("atleta_nombre,deporte,nombre,km,min,elev,capturado_en")
-      .gte("capturado_en", SEASON_START)
-      .order("capturado_en", { ascending: false }).limit(500);
+      .select("atleta_nombre,deporte,nombre,km,min,elev,capturado_en,fecha_actividad,fuente")
+      // Mismo criterio que el motor: si no puntua, no se lista (si no, el admin ve una
+      // actividad repetida y parece un fallo). Siguen en la tabla para auditarlas por SQL.
+      .not("fuente", "in", "(club_obsoleto,duplicado_elev)")
+      .gte("fecha_actividad", SEASON_START)
+      .order("fecha_actividad", { ascending: false }).limit(500);
     adminActs = data || [];
   } catch (e) { adminActs = []; }
   try {
@@ -915,7 +1068,7 @@ function adminActsHTML(inputStyle) {
     return `<div class="row act-row" data-s="${s.replace(/"/g, "")}">
       <div class="who"><div class="nm">${emojiDeporte(a.deporte)} ${a.atleta_nombre || "—"}</div>
         <div class="sub"><span>${a.nombre || a.deporte || "Entreno"}${det ? " · " + det : ""}</span></div></div>
-      <div class="cofre"><small>${fechaCorta(a.capturado_en)}</small></div>
+      <div class="cofre"><small>${fechaCorta(a.fecha_actividad || a.capturado_en)}${a.fuente === "personal" ? " ✓" : ""}</small></div>
     </div>`;
   }).join("");
   return `<div class="card">
