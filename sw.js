@@ -1,5 +1,5 @@
 // Service worker mínimo para que la app sea instalable y funcione offline.
-const CACHE = "trisport-liga-v38";
+const CACHE = "trisport-liga-v39";
 const ASSETS = [
   "./",
   "./index.html",

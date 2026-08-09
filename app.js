@@ -32,10 +32,11 @@ let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v38"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v39"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
+let adminConexiones = null; // quien ha conectado su Strava (RPC conexiones_strava, solo admin)
 let adminDesgloses = {};   // atleta_key -> {desglose, puntos_base, ajuste_piques} (inspector admin)
 let adminAtletaSel = "";   // atleta seleccionado en el inspector
 
@@ -68,7 +69,7 @@ function wireUI() {
       // Al abrir Admin, refresca los datos del panel (indicador de sync, stats…) para no ver datos viejos.
       if (b.dataset.view === "admin" && soyAdmin) {
         adminPanel = null; adminActs = null; adminEventos = null;
-        adminDuplicados = null; adminCargando = true; loadAdminPanel();
+        adminDuplicados = null; adminConexiones = null; adminCargando = true; loadAdminPanel();
       }
     })
   );
@@ -844,7 +845,7 @@ function renderAdmin() {
       <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
     </div>`;
 
-  const panelHTML = `${adminStatsHTML()}${adminAtletaHTML(inputStyle)}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
+  const panelHTML = `${adminStatsHTML()}${conexionesHTML()}${adminAtletaHTML(inputStyle)}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
 
   const configHTML = `
     <div class="card">
@@ -898,7 +899,7 @@ function renderAdmin() {
     b.addEventListener("click", () => terminarCampana(b.dataset.end)));
   $("#adm-ataques")?.addEventListener("click", toggleAtaques);
   $("#adm-refresh")?.addEventListener("click", () => {
-    adminPanel = null; adminActs = null; adminEventos = null; adminDuplicados = null; adminCargando = true; loadAdminPanel();
+    adminPanel = null; adminActs = null; adminEventos = null; adminDuplicados = null; adminConexiones = null; adminCargando = true; loadAdminPanel();
   });
   $("#adm-atleta-sel")?.addEventListener("change", (e) => { adminAtletaSel = e.target.value; renderAdmin(); });
   const buscador = $("#adm-act-buscar");
@@ -943,6 +944,10 @@ async function loadAdminPanel() {
       .order("detectado_en", { ascending: false }).limit(100);
     adminDuplicados = data || [];
   } catch (e) { adminDuplicados = []; }
+  try {
+    const { data } = await sb.rpc("conexiones_strava");
+    adminConexiones = data && data.ok ? data : null;
+  } catch (e) { adminConexiones = null; } // RPC aún no desplegada: la tarjeta no se muestra
   try {
     const { data } = await sb.from("estado_atleta").select("atleta_key,desglose,puntos_base,ajuste_piques");
     adminDesgloses = {};
@@ -1006,6 +1011,37 @@ function adminLogHTML() {
     <h2 class="section" style="margin-top:0">📜 Registro de acciones (${adminEventos.length})</h2>
     ${rows}
     <p class="hint" style="margin:8px 0 0">Últimos 100 movimientos: escudos, sprints, robos y duelos de toda la liga.</p>
+  </div>`;
+}
+
+// Registro de conexiones a Strava. Ademas de seguir la campana, es la prueba de "demanda"
+// que pide Strava para ampliar el cupo de atletas de 10 a los 27 del club.
+function conexionesHTML() {
+  if (!adminConexiones) return "";
+  const { conectados = 0, total = 0, cupo = 10, socios = [] } = adminConexiones;
+  const libres = Math.max(0, cupo - conectados);
+  const pct = Math.min(100, Math.round((conectados / cupo) * 100));
+  const barra = `<div style="height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;margin:10px 0">
+      <div style="height:100%;width:${pct}%;background:var(--orange)"></div>
+    </div>`;
+  const filas = socios.map((s) => {
+    if (!s.conectado) {
+      return `<div class="row"><div class="who"><div class="nm">⚪ ${s.nombre}</div>
+        <div class="sub"><span>sin conectar</span></div></div></div>`;
+    }
+    const err = s.ultimo_error ? ` · ⚠️ ${String(s.ultimo_error).slice(0, 60)}` : "";
+    const sync = s.ultima_sync ? hace(s.ultima_sync) : "aún sin sincronizar";
+    return `<div class="row"><div class="who"><div class="nm">🟢 ${s.nombre}</div>
+      <div class="sub"><span>${s.nombre_strava || "—"} · ${s.actividades || 0} act. con fecha real ·
+        conectó ${hace(s.conectado_en)} · sync ${sync}${err}</span></div></div></div>`;
+  }).join("");
+  return `<div class="card">
+    <h2 class="section" style="margin-top:0">🔗 Conexiones a Strava (${conectados}/${cupo})</h2>
+    <p class="hint" style="margin-top:0">${conectados} de ${total} socios han conectado.
+      ${libres ? `Quedan <b>${libres}</b> plazas del cupo actual.` :
+        `<b>Cupo lleno.</b> Ya se puede pedir a Strava la ampliación a ${total}.`}</p>
+    ${barra}
+    ${filas || `<p class="hint">Nadie todavía.</p>`}
   </div>`;
 }
 
