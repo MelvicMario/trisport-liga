@@ -271,16 +271,18 @@ export function correrVuelta(atletas, semanas, { nEquipos = 8 } = {}) {
            ligaEquipos: { clasificacion: clasifEq, jornadas: jornadasEq } };
 }
 
-// Nombres de equipo: parodias de equipos World Tour. Se reconoce el original de
-// inmediato y el chiste se pilla solo, que es lo que hace que la gente lo repita.
-// Ninguno se mete con nadie del club.
+// Nombres de equipo: barrios y sitios de Getafe con el molde de un equipo World Tour.
+// Se reconoce el formato (Bahrain Victorious, INEOS Grenadiers, Soudal Quick-Step...) y
+// suena a escuadra de verdad, pero sin reirse de nadie: el reparto es en serpiente y a
+// nadie le preguntan en que equipo cae, asi que el chiste no puede ir contra el que lo
+// lleva. Si un equipo quiere ponerse otro nombre, mejor: que lo elijan ellos.
 const NOMBRES_EQUIPO = [
-  "Movilento",              // Movistar
-  "INEPTOS Grenadiers",     // INEOS
-  "EF Educación Física",    // EF Education
-  "Sudal Quick-Sleep",      // Soudal Quick-Step
-  "Alpecín-Descuelgue",     // Alpecin-Deceuninck
-  "Mercadona-Trek",         // Lidl-Trek
-  "Cofidís a Plazos",       // Cofidis
-  "Grupeta-FDJ",            // Groupama-FDJ
+  "Getafe Victorious",       // Bahrain Victorious
+  "Perales Grenadiers",      // INEOS Grenadiers
+  "Alhóndiga Quick-Step",    // Soudal Quick-Step
+  "Bercial-Trek",            // Lidl-Trek
+  "Buenavista Premier Tech", // Israel-Premier Tech
+  "Sector III Deceuninck",   // Alpecin-Deceuninck
+  "Team Juan de la Cierva",  // UAE Team Emirates
+  "Vía Verde Racing",
 ];
