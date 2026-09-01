@@ -69,8 +69,8 @@ export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
     if (!d.discs.includes(l)) d.discs += l;
   }
 
-  const atletas = [];
   const semanas = new Set();
+  const porSemanaDe = new Map();
   for (const [nombre, dias] of porAtleta) {
     const porSemana = new Map();
     for (const d of [...dias.values()].filter(diaValido)) {
@@ -79,9 +79,18 @@ export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
       porSemana.get(w).push(d);
       semanas.add(w);
     }
-    if (porSemana.size) atletas.push({ nombre, semanas: porSemana });
+    porSemanaDe.set(nombre, porSemana);
   }
-  if (!atletas.length) return null; // temporada aún sin datos: la app lo dice, no revienta
+  if (!semanas.size) return null; // temporada aún sin datos: la app lo dice, no revienta
+
+  // Corren TODOS los socios de alta, entrenen o no. Si la plantilla saliera solo de
+  // quien tiene actividades, un socio sin Strava conectado no existiria en la Vuelta,
+  // y el dia que subiera su primer entreno entraria en el sorteo de equipos y se lo
+  // cambiaria a todo el mundo a mitad de temporada. Quien no entrena sale con 0.
+  const nombres = enActivo.size ? [...enActivo] : [...porSemanaDe.keys()];
+  const atletas = nombres.map((nombre) => ({
+    nombre, semanas: porSemanaDe.get(nombre) || new Map(),
+  }));
 
   const SEMANAS = [...semanas].sort();
   const v = correrVuelta(atletas, SEMANAS);
