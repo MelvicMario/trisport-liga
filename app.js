@@ -44,7 +44,7 @@ let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 con
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v43"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v44"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -151,8 +151,12 @@ async function afterLogin() {
   const tabAdmin = $("#tabAdmin");
   if (tabAdmin) tabAdmin.style.display = soyAdmin ? "" : "none";
 
-  await loadData();
+  // Si algo falla al pintar, que no impida entrar: la sesion es lo primero. Un bug de
+  // render dejaba al socio en la pantalla de login como si no estuviera autorizado.
+  try { await loadData(); } catch (e) { console.error("loadData:", e); }
   await cargarLaVuelta();
+  try { renderNoticias(); renderBase(); renderRank(); renderReglamento(); }
+  catch (e) { console.error("render:", e); }
   $("#tabs").style.display = "flex";
   $("#logout").style.display = "block";
   $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "news"));
@@ -326,7 +330,7 @@ function renderNoticias() {
 function renderBase() {
   const c = $("#baseContent");
   if (!c) return;
-  const miNombre = (clasif.find((x) => x.atleta_key === myAtletaKey) || {}).nombre;
+  const miNombre = (clasificacion.find((x) => x.atleta_key === myAtletaKey) || {}).nombre;
   c.innerHTML = vistaMiCarrera(VUELTA, miNombre) + stravaHTML();
   $("#stravaOn")?.addEventListener("click", (e) => { e.preventDefault(); conectarStrava(); });
   $("#stravaOff")?.addEventListener("click", desconectarStrava);
