@@ -1,6 +1,10 @@
 // TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, STRAVA_CLIENT_ID } from "./config.js";
+import { cargarVuelta, INICIO_VUELTA } from "./vuelta-datos.js";
+import { vistaVuelta, vistaMiCarrera, vistaClasificacion, vistaReglamento } from "./vuelta-ui.js";
+import { PILARES } from "./motor/liga.js";
+import { TERRENOS } from "./motor/vuelta.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -28,12 +32,18 @@ let adminActs = null;    // actividades sincronizadas recientes (panel admin)
 let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
+// --- La Vuelta ---
+let VUELTA = null;   // resultado del motor, calculado en el navegador
+let etapaSel = null; // etapa que se esta mirando (por defecto, la ultima)
+// Mientras sea true, la Vuelta corre sobre los datos que ya hay y la portada avisa de
+// que es una prueba. El lunes 8 se pone a false: entonces manda INICIO_VUELTA y la
+// temporada arranca de cero. Un solo interruptor.
+const PRETEMPORADA = true;
 let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del socio actual
-let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 conectados
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v40"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v39"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -141,6 +151,7 @@ async function afterLogin() {
   if (tabAdmin) tabAdmin.style.display = soyAdmin ? "" : "none";
 
   await loadData();
+  await cargarLaVuelta();
   $("#tabs").style.display = "flex";
   $("#logout").style.display = "block";
   $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "news"));
@@ -175,24 +186,11 @@ async function cargarMiStrava() {
     const { data } = await sb.rpc("mi_strava");
     miStrava = data || { conectado: false };
   } catch (e) { miStrava = null; } // RPC aún no desplegada: la tarjeta no se muestra
-  try {
-    const { data } = await sb.rpc("cupo_strava");
-    cupoStrava = data || null;
-  } catch (e) { cupoStrava = null; }
 }
 
 function conectarStrava() {
   if (!STRAVA_CLIENT_ID) {
     alert("Falta configurar el Client ID de Strava en la app. Avisa al admin.");
-    return;
-  }
-  // Sin esto, Strava le suelta un "403: se ha superado el limite de deportistas
-  // conectados" en su propia pagina y el socio cree que la app esta rota.
-  if (cupoStrava && cupoStrava.libres <= 0) {
-    stravaMsg = "Ahora mismo no hay plazas: Strava solo nos deja " + cupoStrava.cupo +
-      " socios conectados y ya estan cubiertas. Hemos pedido la ampliacion para todo el club; " +
-      "te avisamos en cuanto se abra.";
-    renderBase();
     return;
   }
   const url = new URL("https://www.strava.com/oauth/authorize");
@@ -248,21 +246,15 @@ function stravaHTML() {
       ${poweredByStrava()}
     </div>`;
   }
-  const lleno = !!(cupoStrava && cupoStrava.libres <= 0);
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔗 Conecta tu Strava</h2>
     <p class="hint" style="margin-top:0">Sin conectar, la liga solo ve tus actividades por el feed
       del club, que <b>no dice qué día entrenaste</b>: cuentan el día en que las detectamos. Si subes
       tarde o metes la actividad a mano, se te juntan dos entrenos en un día. Conectando tu Strava
       leemos la fecha real y recolocamos también los entrenos que ya tienes.</p>
-    ${lleno ? `<p class="hint" style="margin:10px 0 0;padding:10px 12px;border-radius:8px;
-        background:rgba(244,122,32,.14);border:1px solid rgba(244,122,32,.45)">
-        <b>Cupo completo (${cupoStrava.conectados}/${cupoStrava.cupo}).</b> Strava limita cuántos
-        socios pueden conectar a la vez. Ya hemos pedido la ampliación para todo el club: en cuanto
-        nos la den, te avisamos.</p>`
-      : `<a href="#" id="stravaOn" style="display:inline-block;margin-top:10px" aria-label="Conectar con Strava">
+    <a href="#" id="stravaOn" style="display:inline-block;margin-top:10px" aria-label="Conectar con Strava">
       <img src="./img/strava-connect.svg" alt="Conectar con Strava" style="height:48px;display:block">
-    </a>`}
+    </a>
     <p class="hint" style="margin:10px 0 0">Permiso de <b>solo lectura</b> de tus actividades.
       Puedes desconectarlo desde aquí cuando quieras.</p>
     ${aviso}
@@ -298,6 +290,50 @@ function wireStravaLogo() {
     img.addEventListener("error", aTexto);
     if (img.complete && img.naturalWidth === 0) aTexto();
   });
+}
+
+// ---------- Pantallas de La Vuelta ----------
+function renderNoticias() {
+  const aviso = $("#avisoPruebas");
+  if (aviso) aviso.innerHTML = PRETEMPORADA ? `<div class="vPruebas">
+    <b>Pretemporada.</b> Esto es una prueba con los datos que ya hay: sirve para ver el
+    formato y cazar fallos. La Vuelta de verdad arranca el <b>lunes 8</b> y empieza de cero.
+  </div>` : "";
+  const c = $("#vueltaHome");
+  if (c) c.innerHTML = vistaVuelta(VUELTA, etapaSel);
+}
+
+function renderBase() {
+  const c = $("#baseContent");
+  if (!c) return;
+  const miNombre = (clasif.find((x) => x.atleta_key === myAtletaKey) || {}).nombre;
+  c.innerHTML = vistaMiCarrera(VUELTA, miNombre) + stravaHTML();
+  $("#stravaOn")?.addEventListener("click", (e) => { e.preventDefault(); conectarStrava(); });
+  $("#stravaOff")?.addEventListener("click", desconectarStrava);
+  wireStravaLogo();
+}
+
+function renderRank(mode = "general") {
+  const c = $("#rankList");
+  if (c) c.innerHTML = vistaClasificacion(VUELTA, mode, etapaSel);
+}
+
+function renderReglamento() {
+  const c = $("#reglamento");
+  if (c) c.innerHTML = vistaReglamento(PILARES, TERRENOS);
+}
+
+async function cargarLaVuelta() {
+  try {
+    // En pretemporada se mira hacia atras para tener algo que enseñar. El lunes 8 basta
+    // con poner PRETEMPORADA = false: entonces manda INICIO_VUELTA y la Vuelta empieza
+    // de cero, sin arrastrar nada del verano.
+    VUELTA = await cargarVuelta(sb, PRETEMPORADA ? { desde: "2026-06-01" } : {});
+    etapaSel = VUELTA ? VUELTA.etapas.length - 1 : null;
+  } catch (e) {
+    VUELTA = null;
+    console.error("No se pudo montar la Vuelta:", e.message);
+  }
 }
 
 async function loadData() {
@@ -375,6 +411,7 @@ async function loadData() {
   renderNoticias();
   renderRank($("#rankSeg .active")?.dataset.mode || "general");
   renderBase();
+  renderReglamento();
   renderBanner();
   renderAdmin();
   $("#metaLine").textContent = `Conectado a la liga · ${clasificacion.length} atletas · ${APP_VERSION}`;
@@ -439,7 +476,7 @@ function noticiaTexto(e) {
     default: return e.msg || e.tipo;
   }
 }
-function renderNoticias() {
+function renderNoticiasCastillo() {
   const el = $("#newsList");
   if (!eventos.length) {
     el.innerHTML = `<div class="card"><p class="hint">Todavía no hay movimientos en la liga.
@@ -482,7 +519,7 @@ function rowHTML(a, pos) {
     <div class="cofre">${fmt(a.cofre)}<small>puntos</small></div>
   </div>`;
 }
-function renderRank(mode = "general") {
+function renderRankCastillo(mode = "general") {
   const list = $("#rankList");
   if (mode === "alianzas") {
     if (!rankAlianzas.length) {
@@ -725,7 +762,7 @@ function miAlianzaHTML() {
   return ` <span class="badge" style="background:var(--orange);color:var(--navy)">🤝 ${a.emoji || ""} ${a.nombre}</span>`;
 }
 
-function renderBase() {
+function renderBaseCastillo() {
   const m = me();
   const c = $("#baseContent");
   if (!m) { c.innerHTML = `<div class="card"><p class="hint">No encuentro tu castillo. Avisa al admin.</p></div>`; return; }

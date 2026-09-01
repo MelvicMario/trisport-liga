@@ -9,6 +9,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="vuelta.css" />
 </head>
 <body>
   <div id="app">
@@ -47,9 +48,8 @@
 
       <!-- NOTICIAS -->
       <section id="view-news" class="view">
-        <div id="campaignBanner"></div>
-        <h2 class="section">📰 Noticias de la liga</h2>
-        <div id="newsList"></div>
+        <div id="avisoPruebas"></div>
+        <div id="vueltaHome"></div>
       </section>
 
       <!-- MI CASTILLO -->
@@ -61,106 +61,14 @@
       <section id="view-rank" class="view">
         <div class="seg" id="rankSeg">
           <button data-mode="general" class="active">General</button>
-          <button data-mode="div">Por divisiones</button>
-          <button data-mode="alianzas">Alianzas</button>
+          <button data-mode="equipos">Por equipos</button>
         </div>
         <div id="rankList"></div>
       </section>
 
       <!-- CÓMO SE JUEGA -->
       <section id="view-help" class="view help">
-        <h2 class="section">Cómo se juega</h2>
-        <p class="hint" style="margin-top:0">Toca cada apartado para desplegarlo. 👇</p>
-
-        <details class="guia" open><summary>🎯 ¿Qué es la TriSport Liga?</summary>
-          <div class="cuerpo">
-            <p>Una liga del club que premia <b>la constancia y la participación</b>, NO quién hace más kilómetros.</p>
-            <p>Entrenar te da dos cosas:</p>
-            <p>🏰 <b>Puntos de Liga</b> → tu posición en la clasificación (tu "cofre").</p>
-            <p>⚡ <b>Energía</b> → la munición para tus jugadas (atacar, defender…).</p>
-            <p>Todo es <b>automático desde tu Strava</b>: tú entrena, la liga hace el resto.</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>🏰 Tus puntos (construir el castillo)</summary>
-          <div class="cuerpo">
-            <p><b>No cuentan los km, cuenta APARECER.</b> Cada <b>día válido</b> (mín. 15 min o 3 km) suma:</p>
-            <p>🗓️ <b>12 puntos</b> por entrenar ese día.</p>
-            <p>💪 <b>+ hasta 4</b> por duración: <b>40 min o más = +4</b> (tope); menos, proporcional (20 min ≈ +2).</p>
-            <p>🔥 <b>× racha</b>: un pequeño multiplicador según <b>cuántos días entrenas en los últimos 7</b>. Es <b>+4% por día</b>, con tope <b>+15%</b>:</p>
-            <p style="margin-left:6px">2 días → ×1,04 · 3 → ×1,08 · 4 → ×1,12 · <b>5 o más → ×1,15</b> (tope).</p>
-            <p>Se aplica a los puntos de ese día (12 + volumen). Ej.: un día de 40 min con 4 días de racha = (12+4) × 1,12 ≈ <b>18</b>.</p>
-            <p class="hint">Un día de descanso suelto <b>no</b> la rompe (cuenta los días en una ventana de 7, no exige días consecutivos). Es distinta del tope de 4 días de la base: la racha mira los últimos 7 y puede sumar con el finde de la semana anterior. Es pequeña a propósito: manda la <b>constancia</b>, no machacar.</p>
-            <div class="ej"><p style="margin:0"><b>Ejemplo:</b> un día de 40 min = <b>12 + 4 = 16 puntos</b>. Tres días así ≈ <b>50</b> a la semana.</p></div>
-            <p>Bonus de la semana:</p>
-            <p>🏆 <b>Semana cumplida</b> (3+ días): <b>+5</b></p>
-            <p>🔀 <b>Variedad</b> (2+ deportes): <b>+4</b></p>
-            <p>👥 <b>Salida de club</b>: <b>+4</b></p>
-            <p>4️⃣ Solo cuentan <b>hasta 4 días/semana</b> para la base (entrenar a diario no dispara los puntos).</p>
-            <p class="hint">Verás tu desglose en <b>Mi Castillo → 📊 Cómo vas sumando</b>.</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>⚡ La energía</summary>
-          <div class="cuerpo">
-            <p>🔋 <b>1 de energía por cada día que entrenas</b> (día válido).</p>
-            <p>📅 Máximo <b>5 por semana</b> · se <b>renueva cada lunes</b>.</p>
-            <p>La gastas en tus jugadas: 🛡️ Escudo (2) · ⚡ Sprint (3) · 🥷 Robo (3) · ⚔️ Duelo (2).</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>🛡️ Defender (Escudo)</summary>
-          <div class="cuerpo">
-            <p>Cuesta <b>2 de energía</b> → te da <b>+3 cargas de defensa</b> (máximo <b>6</b>; puedes reforzar 2 veces/semana).</p>
-            <p>Cada <b>robo</b> que recibas teniendo cargas se <b>repele</b>: el atacante <b>falla</b>, queda debilitado <b>(−6)</b> y tú gastas <b>1 carga</b>.</p>
-            <p>Solo tú ves tus cargas. 🤫 Las cargas <b>no caducan</b> hasta que un ataque las consume.</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>🥷 Robar</summary>
-          <div class="cuerpo">
-            <p>Cuesta <b>3 de energía</b>. Le quitas a un rival de tu división el <b>25% de sus puntos de la semana</b> (tope 120) y se suman a tu cofre.</p>
-            <p>⚠️ Es una <b>apuesta</b>: no sabes si está defendido. Si lo está, tu robo <b>falla</b>, pierdes la energía y quedas debilitado <b>(−6)</b>.</p>
-            <p>No puedes robar <b>al mismo rival dos veces seguidas</b> (anti-acoso).</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>⚡ Sprint</summary>
-          <div class="cuerpo">
-            <p>Cuesta <b>3 de energía</b>. Multiplica tu esfuerzo: suma a tu cofre el <b>50% de tus puntos de la semana</b>.</p>
-            <p>Es la jugada para <b>empujar tu propia posición</b> sin atacar a nadie.</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>⚔️ Duelo y 🤝 Cara a Cara</summary>
-          <div class="cuerpo">
-            <p><b>⚔️ Duelo</b> (acción): cuesta <b>2 de energía</b>, <b>inmediato</b>. Gana quien lleve más puntos esa semana; el ganador se lleva el <b>20%</b> de los puntos en juego (el perdedor los pierde).</p>
-            <p><b>🤝 Cara a Cara</b> (reto): <b>NO cuesta energía</b>. Apuestas <b>puntos</b> (de 10 a 100).</p>
-            <p>📅 Se juega <b>la semana siguiente completa</b> (lunes a domingo), lo lances el día que lo lances — nunca cuenta la semana en curso. Se resuelve el domingo.</p>
-            <p>👉 Mide <b>PUNTOS DE LIGA</b> generados durante esa semana (constancia + variedad), <b>no</b> km ni tiempo. Gana quien más sume y se lleva la apuesta; si hay empate, no se mueve nada.</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>👥 Alianzas y 📣 campañas</summary>
-          <div class="cuerpo">
-            <p>🤝 <b>Alianzas</b>: uníos varios para sumar fuerzas y aparecer en la clasificación por equipos.</p>
-            <p>📣 <b>Campañas</b>: retos especiales del club con premios extra (a veces bloquean ataques = tregua).</p>
-          </div>
-        </details>
-
-        <details class="guia"><summary>🏆 Cómo ganar</summary>
-          <div class="cuerpo">
-            <p>Gana quien entrena <b>3–4 días casi cada semana y varía de deporte</b>, no quien hace tiradas enormes de vez en cuando.</p>
-            <p>Suma constancia + variedad + una buena jugada de energía (sprint/robo) y a conquistar. 🔥</p>
-          </div>
-        </details>
-        <div class="card" style="text-align:center">
-          <div style="color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Patrocinador oficial de la liga</div>
-          <span style="display:inline-block;background:#fff;border-radius:12px;padding:14px 22px">
-            <img src="ifer.jpg" alt="Industrias IFER" style="height:34px;display:block" /></span>
-          <p class="hint" style="margin:12px 0 0">La TriSport Liga es posible gracias a <b>Industrias IFER</b>. ¡Gracias por apoyar el deporte del club! 🧡💙</p>
-        </div>
-        <p class="hint" id="metaLine"></p>
+        <div id="reglamento"></div>
       </section>
 
       <!-- ADMIN -->
@@ -171,9 +79,9 @@
     </main>
 
     <nav class="tabs" id="tabs" style="display:none">
-      <button data-view="news" class="active"><span class="ic">📰</span>Noticias</button>
-      <button data-view="base"><span class="ic">🏰</span>Mi Castillo</button>
-      <button data-view="rank"><span class="ic">🏆</span>Jugadores</button>
+      <button data-view="news" class="active"><span class="ic">🚴</span>La Vuelta</button>
+      <button data-view="base"><span class="ic">👤</span>Mi carrera</button>
+      <button data-view="rank"><span class="ic">🏆</span>Clasificación</button>
       <button data-view="help"><span class="ic">❓</span>Cómo</button>
       <button data-view="admin" id="tabAdmin" style="display:none"><span class="ic">📣</span>Admin</button>
     </nav>

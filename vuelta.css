@@ -1,0 +1,80 @@
+/* La Vuelta a TriSport — estilos propios de las pantallas nuevas.
+   Van aparte de styles.css para poder retirarlos de un tirón si hiciera falta.
+   Paleta del club (navy + naranja) con el rojo de maillot líder como acento. */
+
+.vBanda{background:#F47A20;color:#16140F;border-radius:14px;padding:16px 18px;margin-bottom:18px;
+  box-shadow:0 1px 2px rgba(0,0,0,.2),0 8px 24px rgba(0,0,0,.18)}
+.vBandaK{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.75;font-weight:700}
+.vBandaT{font-size:24px;font-weight:800;line-height:1.05;margin-top:3px;text-transform:uppercase}
+.vBandaD{font-size:15px;font-weight:600;margin-top:6px}
+.vBandaE{font-size:13px;margin-top:6px;opacity:.8}
+
+.vMaillots{display:grid;gap:10px;margin-bottom:6px}
+.vMaillot{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--c);
+  border-radius:12px;padding:10px 14px}
+.vMaillot svg{flex:0 0 auto}
+.vQue{font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.65}
+.vQuien{font-size:17px;font-weight:700;line-height:1.15}
+.vVal{font-size:13px;color:var(--c)}
+
+.vPodio{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.vPodio li{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:9px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1)}
+.vPodio li:first-child{border-color:rgba(215,38,61,.5);background:rgba(215,38,61,.12)}
+.vPodio .p{font-weight:800;opacity:.6}
+.vPodio li:first-child .p{opacity:1;color:#FF8A97}
+.vPodio .n{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vPodio .t{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.vPodio .vacio{display:block;text-align:left;opacity:.6}
+
+.vDorsal .d{display:flex;align-items:baseline;gap:12px}
+.vDorsal .p{font-size:46px;font-weight:800;line-height:.9;color:#FF8A97;
+  font-variant-numeric:tabular-nums}
+.vDorsal .n{font-size:22px;font-weight:800;text-transform:uppercase;line-height:1}
+.vGap{margin-top:14px;padding:12px 14px;border-radius:9px;background:#3A1420;
+  border:1px solid rgba(215,38,61,.5);color:#FFE9EC;font-size:14.5px}
+.vGap b{font-weight:800}
+.vMini{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:14px}
+.vMini i{flex:1;background:linear-gradient(180deg,#F47A20,rgba(244,122,32,.25));
+  border-radius:2px 2px 0 0;min-height:2px}
+
+.vClas{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;
+  padding:10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:14.5px}
+.vClas:first-of-type{border-top:0}
+.vClas .pu{font-weight:800;opacity:.6;font-variant-numeric:tabular-nums}
+.vClas.lider .pu,.vClas.lider .st{color:#FFD166;opacity:1}
+.vClas .st{font-size:12.5px;opacity:.7;text-align:right}
+
+.vRival{border-color:rgba(244,122,32,.45)}
+.vRival .k{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#F47A20;
+  font-weight:700}
+.vRival .n{font-size:22px;font-weight:800;text-transform:uppercase;margin-top:2px}
+
+.tablabox{overflow-x:auto}
+.vTabla{width:100%;min-width:340px;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.vTabla th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;
+  text-align:right;padding:0 8px 8px;font-weight:700}
+.vTabla th:nth-child(2){text-align:left;width:100%}
+.vTabla td{padding:10px 8px;text-align:right;border-top:1px solid rgba(255,255,255,.1)}
+.vTabla td:nth-child(2){text-align:left}
+.vTabla .pos{opacity:.55;width:28px;font-weight:700}
+.vTabla tr:nth-child(-n+3) .pos{color:#FF8A97;opacity:1}
+.vTabla .pts{font-weight:800;font-size:16px}
+.vTabla .sub{display:block;font-size:12px;opacity:.6}
+.vTabla .dim{opacity:.6}
+.vJersey{display:inline-block;width:12px;height:12px;border-radius:3px;margin-left:7px;
+  vertical-align:-1px;border:1px solid rgba(0,0,0,.3)}
+
+.vDuelo{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;
+  padding:10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:14px}
+.vDuelo .l{text-align:right}
+.vDuelo .g{font-weight:800}
+.vDuelo .res{font-weight:800;font-size:16px;background:rgba(255,255,255,.08);
+  border-radius:7px;padding:3px 10px;white-space:nowrap}
+
+/* Aviso de pretemporada: se quita el lunes que arranque de verdad. */
+.vPruebas{background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.5);
+  color:#FFE9B8;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:14px}
+.vPruebas b{color:#FFD166}
