@@ -44,7 +44,7 @@ let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 con
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v46"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v47"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -86,8 +86,6 @@ async function entrar() {
 
 function wireUI() {
   $("#googleBtn").addEventListener("click", loginGoogle);
-  $("#sendLink").addEventListener("click", sendLink);
-  $("#email").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLink(); });
   $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); myAtletaKey = null; });
   $$("nav.tabs button").forEach((b) =>
     b.addEventListener("click", () => {
@@ -127,20 +125,6 @@ async function loginGoogle() {
     options: { redirectTo: location.origin + location.pathname },
   });
   if (error) $("#loginMsg").innerHTML = "⚠️ " + error.message;
-}
-
-async function sendLink() {
-  const email = $("#email").value.trim();
-  const msg = $("#loginMsg");
-  if (!email || !email.includes("@")) { msg.textContent = "Escribe un email válido."; return; }
-  msg.textContent = "Enviando…";
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: location.origin + location.pathname },
-  });
-  msg.innerHTML = error
-    ? "⚠️ " + error.message
-    : "✅ Revisa tu correo y pulsa el enlace para entrar. Puedes cerrar esta pestaña.";
 }
 
 async function afterLogin() {
