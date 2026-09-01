@@ -26,6 +26,11 @@ function letra(deporte) {
  * exacta que espera correrVuelta().
  */
 export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
+  // Solo corren los socios de ALTA. Sin esto, los entrenos de quien se ha dado de baja
+  // seguirian puntuando: la Vuelta agrupa por atleta_nombre, no por la tabla de atletas.
+  const { data: plantilla } = await sb.from("atletas").select("nombre,activo");
+  const enActivo = new Set((plantilla || []).filter((a) => a.activo !== false).map((a) => a.nombre));
+
   const { data, error } = await sb
     .from("actividades")
     .select("atleta_nombre,deporte,km,min,elev,fecha_actividad")
@@ -40,6 +45,7 @@ export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
   const porAtleta = new Map();
   for (const a of data || []) {
     if (!a.atleta_nombre || !a.fecha_actividad) continue;
+    if (enActivo.size && !enActivo.has(a.atleta_nombre)) continue; // de baja, no puntua
     if (!porAtleta.has(a.atleta_nombre)) porAtleta.set(a.atleta_nombre, new Map());
     const dias = porAtleta.get(a.atleta_nombre);
     if (!dias.has(a.fecha_actividad)) {
