@@ -44,7 +44,7 @@ let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 con
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v44"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v45"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -58,14 +58,30 @@ async function boot() {
   wireUI();
   capturarRetornoStrava();
   document.querySelectorAll(".appVersion").forEach((e) => { e.textContent = APP_VERSION; });
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) await afterLogin();
-  else showLogin();
-
-  sb.auth.onAuthStateChange((_e, session) => {
-    if (session && !myAtletaKey) afterLogin();
-    if (!session) showLogin();
+  // El listener se registra ANTES de mirar la sesion. Al reves, el evento que trae la
+  // sesion del redirect de Google llega mientras afterLogin (1,5 s de red) sigue en
+  // vuelo, se pierde, y el socio se queda mirando el login con la sesion ya abierta.
+  sb.auth.onAuthStateChange((evento, session) => {
+    if (session) { entrar(); return; }
+    // Solo el cierre de sesion explicito echa a nadie. Un INITIAL_SESSION sin sesion
+    // todavia resuelta, o un refresco de token que tarda, no pueden sacar a quien ya
+    // esta dentro: eso dejaba al socio en el login para siempre, porque el SIGNED_IN
+    // posterior ya no volvia a entrar (myAtletaKey estaba puesto).
+    if (evento === "SIGNED_OUT") { myAtletaKey = null; showLogin(); }
   });
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await entrar();
+  else if (!myAtletaKey) showLogin();
+}
+
+// Cerrojo de entrada: afterLogin hace media docena de llamadas de red, y dos eventos
+// casi simultaneos (INITIAL_SESSION + SIGNED_IN) lanzaban dos arranques en paralelo.
+let entrando = false;
+async function entrar() {
+  if (entrando || myAtletaKey) return;
+  entrando = true;
+  try { await afterLogin(); } finally { entrando = false; }
 }
 
 function wireUI() {
@@ -136,6 +152,9 @@ async function afterLogin() {
     return;
   }
   myAtletaKey = aKey;
+  // Dentro YA. Los datos se pintan despues: si falla una consulta o el motor de la
+  // Vuelta, el socio ve la app vacia, no la pantalla de login.
+  mostrarApp();
   // Registra la visita (estadísticas de uso). Silencioso si aún no existe la RPC.
   try { await sb.rpc("registrar_visita"); } catch (e) {}
 
@@ -157,6 +176,9 @@ async function afterLogin() {
   await cargarLaVuelta();
   try { renderNoticias(); renderBase(); renderRank(); renderReglamento(); }
   catch (e) { console.error("render:", e); }
+}
+
+function mostrarApp() {
   $("#tabs").style.display = "flex";
   $("#logout").style.display = "block";
   $$("nav.tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === "news"));
