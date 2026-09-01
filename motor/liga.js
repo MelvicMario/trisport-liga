@@ -37,7 +37,20 @@ export const PILARES = {
   DED_TOPE: 5,
   DESNIVEL_POR_PUNTO: 600, // 1 punto por cada 600 m+                       ->  5
   DESNIVEL_TOPE: 5,
-  TIRADA: [[90, 1], [150, 2], [240, 3]], // la sesion mas larga             ->  3
+  // Un metro de desnivel a pie cuesta el doble que uno sobre la bici: medido sobre el
+  // verano del club, la bici sube 194 m/h y la carrera 96 m/h. Con la vara unica, el
+  // pilar regalaba 0,78 puntos por etapa a quien montaba en bici.
+  DESNIVEL_FACTOR_PIE: 2,
+  // Cada disciplina tiene su propia idea de "tirada larga": 90' corriendo lo son,
+  // 90' en bici son un paseo, y 240' nadando no existen. Era el pilar mas sesgado de
+  // los cinco (1,48 vs 0,40 por etapa) pese a parecer el mas inocente.
+  TIRADA_POR_DISC: {
+    b: [[120, 1], [210, 2], [300, 3]], // bici
+    c: [[60, 1], [90, 2], [150, 3]],   // carrera
+    n: [[30, 1], [45, 2], [75, 3]],    // natacion
+    o: [[60, 1], [90, 2], [150, 3]],   // lo demas (fuerza, caminar...)
+  },
+  TIRADA: [[90, 1], [150, 2], [240, 3]], // respaldo: dias sin desglose por disciplina
   VARIEDAD: { 2: 1, 3: 2 },              // disciplinas distintas           ->  2
   MAXIMO: 30,
 };
@@ -61,6 +74,9 @@ export function puntuarSemana(dias, P = PILARES) {
   const horas = ds.reduce((s, d) => s + d.min, 0) / 60;
   const metros = ds.reduce((s, d) => s + d.elev, 0);
   const masLarga = Math.max(...ds.map((d) => d.maxmin));
+  // Desnivel a pie, si el dia lo trae desglosado. Los simuladores offline no lo traen:
+  // entonces vale 0 y todo el desnivel cuenta como el de la bici, igual que antes.
+  const metrosPie = ds.reduce((s, d) => s + (d.elevPie || 0), 0);
   const discs = new Set(ds.flatMap((d) => [...d.discs]).filter((c) => c && c !== "o"));
 
   const constancia = Math.min(ds.length, P.DIAS_TOPE) * P.PTS_DIA
@@ -69,9 +85,24 @@ export function puntuarSemana(dias, P = PILARES) {
   // Enteros a proposito: "1 punto cada 2 horas" se entiende; "9 por la raiz de tus
   // horas" no. El truncado hacia abajo evita que 1h59 parezca una hora completa.
   const dedicacion = Math.min(Math.floor(horas / P.HORAS_POR_PUNTO), P.DED_TOPE);
-  const desnivel = Math.min(Math.floor(metros / P.DESNIVEL_POR_PUNTO), P.DESNIVEL_TOPE);
+  const metrosEq = metros + metrosPie * (P.DESNIVEL_FACTOR_PIE - 1);
+  const desnivel = Math.min(Math.floor(metrosEq / P.DESNIVEL_POR_PUNTO), P.DESNIVEL_TOPE);
+  // La mejor tirada de cada disciplina se mide con SU vara y se queda la mas valiosa.
   let tirada = 0;
-  for (const [mins, pts] of P.TIRADA) if (masLarga >= mins) tirada = pts;
+  if (ds.some((d) => d.maxPorDisc)) {
+    const mejor = {};
+    for (const d of ds) for (const [disc, m] of Object.entries(d.maxPorDisc || {})) {
+      mejor[disc] = Math.max(mejor[disc] || 0, m);
+    }
+    for (const [disc, m] of Object.entries(mejor)) {
+      const escala = P.TIRADA_POR_DISC[disc] || P.TIRADA_POR_DISC.o;
+      let p = 0;
+      for (const [mins, pts] of escala) if (m >= mins) p = pts;
+      tirada = Math.max(tirada, p);
+    }
+  } else {
+    for (const [mins, pts] of P.TIRADA) if (masLarga >= mins) tirada = pts;
+  }
   const variedad = P.VARIEDAD[Math.min(discs.size, 3)] || 0;
 
   const r1 = (n) => Math.round(n * 10) / 10;

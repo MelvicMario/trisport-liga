@@ -52,6 +52,9 @@ export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
       dias.set(a.fecha_actividad, {
         date: a.fecha_actividad, ts: new Date(a.fecha_actividad + "T12:00:00"),
         min: 0, km: 0, elev: 0, maxmin: 0, discs: "",
+        // Desglose que necesitan las varas por deporte: desnivel hecho a pie y la
+        // sesion mas larga DE CADA disciplina (no vale el maximo del dia a secas).
+        elevPie: 0, maxPorDisc: {},
       });
     }
     const d = dias.get(a.fecha_actividad);
@@ -61,6 +64,8 @@ export async function cargarVuelta(sb, { desde = INICIO_VUELTA } = {}) {
     d.elev += Number(a.elev) || 0;
     d.maxmin = Math.max(d.maxmin, Math.round(min));
     const l = letra(a.deporte);
+    if (l !== "b") d.elevPie += Number(a.elev) || 0;
+    d.maxPorDisc[l] = Math.max(d.maxPorDisc[l] || 0, Math.round(min));
     if (!d.discs.includes(l)) d.discs += l;
   }
 

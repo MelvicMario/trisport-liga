@@ -151,6 +151,8 @@ export function vistaClasificacion(V, modo = "general", etapaSel) {
   </table></div>`;
 }
 
+const DISC_NOMBRE = { c: "correr", b: "bici", n: "nadar", o: "otros" };
+
 /** Reglamento, generado desde los parametros REALES del motor. */
 export function vistaReglamento(PILARES, TERRENOS) {
   const P = PILARES;
@@ -159,9 +161,12 @@ export function vistaReglamento(PILARES, TERRENOS) {
     ["Premios de semana", `+${P.BONUS_SEMANA} al llegar a ${P.OBJETIVO_DIAS} días · +${P.BONUS_RACHA} más al llegar a ${P.RACHA_DIAS}`,
       P.BONUS_SEMANA + P.BONUS_RACHA],
     ["Horas", `1 punto por cada ${P.HORAS_POR_PUNTO} horas`, P.DED_TOPE],
-    ["Desnivel", `1 punto por cada ${P.DESNIVEL_POR_PUNTO} m+`, P.DESNIVEL_TOPE],
-    ["Tirada larga", `Solo tu sesión más larga: ${P.TIRADA.map(([m, p]) => `${m}′ +${p}`).join(" · ")}`,
-      P.TIRADA[P.TIRADA.length - 1][1]],
+    ["Desnivel", `1 punto por cada ${P.DESNIVEL_POR_PUNTO} m+ en bici · cada ${
+      P.DESNIVEL_POR_PUNTO / P.DESNIVEL_FACTOR_PIE} m+ a pie`, P.DESNIVEL_TOPE],
+    ["Tirada larga", `Solo tu sesión más larga, y cada deporte tiene su vara: ${
+      ["c", "b", "n"].map((d) => `${DISC_NOMBRE[d]} ${
+        P.TIRADA_POR_DISC[d].map(([m, pt]) => `${m}′ +${pt}`).join("/")}`).join(" · ")}`,
+      P.TIRADA_POR_DISC.c[P.TIRADA_POR_DISC.c.length - 1][1]],
     ["Variedad", `Dos disciplinas +${P.VARIEDAD[2]}, las tres +${P.VARIEDAD[3]}`, P.VARIEDAD[3]],
   ];
   return `
@@ -178,10 +183,19 @@ export function vistaReglamento(PILARES, TERRENOS) {
     <li>Un día de menos de <b>15 minutos</b> y menos de <b>3 km</b>: no cuenta como día.</li>
     <li>El día <b>${P.DIAS_TOPE + 1}º</b> de la semana. Esto premia aparecer, no machacarse.</li>
     <li>Las horas a partir de la <b>${P.HORAS_POR_PUNTO * P.DED_TOPE}ª</b> y el desnivel por encima
-      de <b>${(P.DESNIVEL_POR_PUNTO * P.DESNIVEL_TOPE).toLocaleString("es-ES")} m+</b>.</li>
+      de <b>${(P.DESNIVEL_POR_PUNTO * P.DESNIVEL_TOPE).toLocaleString("es-ES")} m+</b> en bici
+      (<b>${(P.DESNIVEL_POR_PUNTO * P.DESNIVEL_TOPE / P.DESNIVEL_FACTOR_PIE).toLocaleString("es-ES")} m+</b> a pie).</li>
     <li>Tu <b>segunda</b> sesión larga: solo cuenta la más larga.</li>
     <li>Las actividades que tengas en <b>privado</b> en Strava. No las vemos, y es a propósito.</li>
   </ul></div>
+
+  <h2 class="section">Por qué cada deporte tiene su vara</h2>
+  <div class="card" style="line-height:1.7">Una hora en bici y una hora corriendo no
+    cuestan lo mismo, y el desnivel tampoco: sobre los datos del club, en bici se suben
+    <b>194 m por hora</b> y corriendo <b>96</b>. Con un único listón para los tres deportes,
+    quien montaba en bici sacaba <b>más de 4 puntos por etapa</b> sin entrenar mejor.
+    Por eso 90′ corriendo valen lo que 210′ en bici o 45′ nadando: el listón cambia,
+    el esfuerzo que pide es el mismo.</div>
 
   <h2 class="section">El terreno de cada etapa</h2>
   <div class="card">${Object.values(TERRENOS).map((t) => `<div class="vClas">
