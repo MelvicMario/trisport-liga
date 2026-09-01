@@ -29,10 +29,11 @@ let adminActFiltro = ""; // texto del buscador de actividades
 let adminCargando = false;
 let adminTab = "panel";  // pestaña del admin: "panel" (stats) | "config"
 let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del socio actual
+let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 conectados
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
 const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v39"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v40"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -174,11 +175,24 @@ async function cargarMiStrava() {
     const { data } = await sb.rpc("mi_strava");
     miStrava = data || { conectado: false };
   } catch (e) { miStrava = null; } // RPC aún no desplegada: la tarjeta no se muestra
+  try {
+    const { data } = await sb.rpc("cupo_strava");
+    cupoStrava = data || null;
+  } catch (e) { cupoStrava = null; }
 }
 
 function conectarStrava() {
   if (!STRAVA_CLIENT_ID) {
     alert("Falta configurar el Client ID de Strava en la app. Avisa al admin.");
+    return;
+  }
+  // Sin esto, Strava le suelta un "403: se ha superado el limite de deportistas
+  // conectados" en su propia pagina y el socio cree que la app esta rota.
+  if (cupoStrava && cupoStrava.libres <= 0) {
+    stravaMsg = "Ahora mismo no hay plazas: Strava solo nos deja " + cupoStrava.cupo +
+      " socios conectados y ya estan cubiertas. Hemos pedido la ampliacion para todo el club; " +
+      "te avisamos en cuanto se abra.";
+    renderBase();
     return;
   }
   const url = new URL("https://www.strava.com/oauth/authorize");
@@ -234,15 +248,21 @@ function stravaHTML() {
       ${poweredByStrava()}
     </div>`;
   }
+  const lleno = !!(cupoStrava && cupoStrava.libres <= 0);
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔗 Conecta tu Strava</h2>
     <p class="hint" style="margin-top:0">Sin conectar, la liga solo ve tus actividades por el feed
       del club, que <b>no dice qué día entrenaste</b>: cuentan el día en que las detectamos. Si subes
       tarde o metes la actividad a mano, se te juntan dos entrenos en un día. Conectando tu Strava
       leemos la fecha real y recolocamos también los entrenos que ya tienes.</p>
-    <a href="#" id="stravaOn" style="display:inline-block;margin-top:10px" aria-label="Conectar con Strava">
+    ${lleno ? `<p class="hint" style="margin:10px 0 0;padding:10px 12px;border-radius:8px;
+        background:rgba(244,122,32,.14);border:1px solid rgba(244,122,32,.45)">
+        <b>Cupo completo (${cupoStrava.conectados}/${cupoStrava.cupo}).</b> Strava limita cuántos
+        socios pueden conectar a la vez. Ya hemos pedido la ampliación para todo el club: en cuanto
+        nos la den, te avisamos.</p>`
+      : `<a href="#" id="stravaOn" style="display:inline-block;margin-top:10px" aria-label="Conectar con Strava">
       <img src="./img/strava-connect.svg" alt="Conectar con Strava" style="height:48px;display:block">
-    </a>
+    </a>`}
     <p class="hint" style="margin:10px 0 0">Permiso de <b>solo lectura</b> de tus actividades.
       Puedes desconectarlo desde aquí cuando quieras.</p>
     ${aviso}
