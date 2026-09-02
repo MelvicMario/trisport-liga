@@ -1,5 +1,6 @@
-// PROTOTIPO "Liga B" — formato liga de fútbol, SIN capa de estrategia.
-// No lo usa el juego en producción: solo lo consumen scripts/build-liga.mjs y web-liga/.
+// Motor de puntuación de La Vuelta a TriSport, SIN capa de estrategia.
+// SÍ está en producción: `npm run build:motor` lo copia a web/motor/liga.js y la PWA
+// puntúa con él en el navegador. Tocar un peso aquí cambia la liga real.
 //
 // Diferencias con el modelo actual (src/model.mjs):
 //   · No hay sprint, robo, duelo, escudo ni energía.

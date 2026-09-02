@@ -24,6 +24,18 @@ export function maillotSVG(id, alto = 44) {
 }
 
 /** Portada: qué toca esta semana, quién lleva cada maillot y cómo va la etapa. */
+/**
+ * Atribucion a Strava. Sus brand guidelines la exigen en CADA pantalla donde se
+ * muestren sus datos, y todo lo que pinta la Vuelta (puntos, dias, desnivel, tiradas)
+ * sale de actividades de Strava. Faltaba en las tres vistas: es motivo de rechazo
+ * directo en la revision con la que se pide ampliar el cupo de atletas.
+ */
+export function marcaStrava() {
+  return `<p style="margin:18px 0 0;text-align:center">
+    <img src="./img/strava-powered.svg" alt="Powered by Strava"
+         style="height:16px;opacity:.75"></p>`;
+}
+
 export function vistaVuelta(V, etapaSel) {
   if (!V) return vacio();
   const p = V.proxima;
@@ -56,7 +68,7 @@ export function vistaVuelta(V, etapaSel) {
       <span class="p">${i + 1}</span><span class="n">${m.nombre}</span>
       <span class="t">${r0(m.total)}</span></li>`).join("")
       : `<li class="vacio">Todavía no hay marcas en esta etapa.</li>`}
-  </ol>`;
+  </ol>` + marcaStrava();
 }
 
 /** Mi carrera: dónde voy en las cinco clasificaciones, mi equipo y mi rival. */
@@ -111,7 +123,7 @@ export function vistaMiCarrera(V, miNombre) {
     <p style="margin:0"><b>${f.equipo.nombre}</b> — ${f.equipo.puesto}º de ${V.equipos.length},
       con ${f.equipo.companeros.join(" y ")}.</p>
     <p class="hint" style="margin:6px 0 0">Tu semana suma a la de ellos. Si faltas, se nota.</p>
-  </div>` : ""}`;
+  </div>` : ""}` + marcaStrava();
 }
 
 /** Clasificación: general y liga de equipos. */
@@ -148,7 +160,7 @@ export function vistaClasificacion(V, modo = "general", etapaSel) {
       <td>${a.dias}</td>
       <td class="dim">${i === 0 ? "—" : "+" + num(lider - a.general)}</td>
       <td class="pts">${a.general}</td></tr>`).join("")}</tbody>
-  </table></div>`;
+  </table></div>` + marcaStrava();
 }
 
 const DISC_NOMBRE = { c: "correr", b: "bici", n: "nadar", o: "otros" };
