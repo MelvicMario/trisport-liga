@@ -1,5 +1,5 @@
 // TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, STRAVA_CLIENT_ID } from "./config.js";
 import { cargarVuelta, INICIO_VUELTA } from "./vuelta-datos.js";
 import { vistaVuelta, vistaMiCarrera, vistaClasificacion, vistaReglamento } from "./vuelta-ui.js";
@@ -43,8 +43,15 @@ let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del
 let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 conectados
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
 let stravaMsg = ""; // aviso a pie de la tarjeta de Strava
-const STRAVA_STATE = "trisport_strava"; // distingue nuestro retorno del ?code= de Supabase
-const APP_VERSION = "v51"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const STRAVA_STATE = "trisport_strava"; // prefijo: distingue nuestro retorno del ?code= de Supabase
+// Anti-CSRF: cada conexion lleva un state aleatorio que se guarda en sessionStorage y se
+// compara al volver. Sin esto, un enlace con el ?code= de otra cuenta Strava la vinculaba
+// al socio que lo abriera.
+const STRAVA_STATE_KEY = "trisport_strava_state";
+/** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const APP_VERSION = "v52"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -178,7 +185,15 @@ function mostrarApp() {
 /** Guarda el ?code= de Strava (y limpia la URL) distinguiéndolo del ?code= de Supabase. */
 function capturarRetornoStrava() {
   const p = new URLSearchParams(location.search);
-  if (p.get("state") !== STRAVA_STATE) return;
+  const st = p.get("state") || "";
+  if (!st.startsWith(STRAVA_STATE)) return;
+  let esperado = null;
+  try { esperado = sessionStorage.getItem(STRAVA_STATE_KEY); sessionStorage.removeItem(STRAVA_STATE_KEY); } catch (e) {}
+  if (!esperado || st !== esperado) {
+    stravaMsg = "Ese enlace de conexion con Strava no se inicio desde tu app. Vuelve a pulsar Conectar.";
+    history.replaceState({}, "", location.origin + location.pathname);
+    return;
+  }
   if (p.get("error")) {
     stravaMsg = "No autorizaste el acceso en Strava. Puedes intentarlo cuando quieras.";
   } else if (p.get("code")) {
@@ -223,7 +238,9 @@ function conectarStrava() {
   url.searchParams.set("redirect_uri", location.origin + location.pathname);
   url.searchParams.set("approval_prompt", "auto");
   url.searchParams.set("scope", "activity:read"); // solo leer actividades; nada de escribir
-  url.searchParams.set("state", STRAVA_STATE);
+  const state = STRAVA_STATE + "_" + crypto.randomUUID();
+  try { sessionStorage.setItem(STRAVA_STATE_KEY, state); } catch (e) {}
+  url.searchParams.set("state", state);
   location.href = url.toString();
 }
 
@@ -259,7 +276,7 @@ function stravaHTML() {
   if (!miStrava) return ""; // backend sin la RPC todavía
   const aviso = stravaMsg ? `<p class="hint" style="margin:10px 0 0">${stravaMsg}</p>` : "";
   if (miStrava.conectado) {
-    const quien = miStrava.nombre_strava ? ` como <b>${miStrava.nombre_strava}</b>` : "";
+    const quien = miStrava.nombre_strava ? ` como <b>${esc(miStrava.nombre_strava)}</b>` : "";
     const n = miStrava.actividades || 0;
     return `<div class="card">
       <h2 class="section" style="margin-top:0">🔗 Strava</h2>
@@ -1046,7 +1063,7 @@ async function loadAdminPanel() {
 
 function adminAtletaHTML(inputStyle) {
   const opts = clasificacion.map((a) =>
-    `<option value="${a.atleta_key}"${a.atleta_key === adminAtletaSel ? " selected" : ""}>${a.nombre}</option>`).join("");
+    `<option value="${a.atleta_key}"${a.atleta_key === adminAtletaSel ? " selected" : ""}>${esc(a.nombre)}</option>`).join("");
   let detalle = `<p class="hint">Elige un atleta para ver su desglose de la semana (para responder dudas).</p>`;
   const r = adminDesgloses[adminAtletaSel];
   if (adminAtletaSel && r) {
@@ -1076,9 +1093,9 @@ function adminDupHTML() {
   if (adminDuplicados === null) return "";
   const ico = { bici: "🚴", carrera: "🏃", natacion: "🏊" };
   const rows = adminDuplicados.length ? adminDuplicados.map((d) => `<div class="row" style="align-items:flex-start">
-      <div class="who"><div class="nm">${ico[d.disc] || "•"} ${d.atleta_nombre} · ${fechaCorta(d.dia)}</div>
-        <div class="sub"><span>✅ queda: "${d.keep_titulo}" ${fmt(d.keep_km)}km/${fmt(d.keep_min)}min<br>
-        🗑️ quitado: "${d.drop_titulo}" ${fmt(d.drop_km)}km/${fmt(d.drop_min)}min</span></div></div>
+      <div class="who"><div class="nm">${ico[d.disc] || "•"} ${esc(d.atleta_nombre)} · ${fechaCorta(d.dia)}</div>
+        <div class="sub"><span>✅ queda: "${esc(d.keep_titulo)}" ${fmt(d.keep_km)}km/${fmt(d.keep_min)}min<br>
+        🗑️ quitado: "${esc(d.drop_titulo)}" ${fmt(d.drop_km)}km/${fmt(d.drop_min)}min</span></div></div>
     </div>`).join("") : `<p class="hint">No se ha eliminado ningún duplicado todavía (se registran a partir de ahora).</p>`;
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔁 Duplicados eliminados (${adminDuplicados.length})</h2>
@@ -1113,13 +1130,13 @@ function conexionesHTML() {
     </div>`;
   const filas = socios.map((s) => {
     if (!s.conectado) {
-      return `<div class="row"><div class="who"><div class="nm">⚪ ${s.nombre}</div>
+      return `<div class="row"><div class="who"><div class="nm">⚪ ${esc(s.nombre)}</div>
         <div class="sub"><span>sin conectar</span></div></div></div>`;
     }
-    const err = s.ultimo_error ? ` · ⚠️ ${String(s.ultimo_error).slice(0, 60)}` : "";
+    const err = s.ultimo_error ? ` · ⚠️ ${esc(String(s.ultimo_error).slice(0, 60))}` : "";
     const sync = s.ultima_sync ? hace(s.ultima_sync) : "aún sin sincronizar";
-    return `<div class="row"><div class="who"><div class="nm">🟢 ${s.nombre}</div>
-      <div class="sub"><span>${s.nombre_strava || "—"} · ${s.actividades || 0} act. con fecha real ·
+    return `<div class="row"><div class="who"><div class="nm">🟢 ${esc(s.nombre)}</div>
+      <div class="sub"><span>${esc(s.nombre_strava) || "—"} · ${s.actividades || 0} act. con fecha real ·
         conectó ${hace(s.conectado_en)} · sync ${sync}${err}</span></div></div></div>`;
   }).join("");
   return `<div class="card">
@@ -1139,7 +1156,7 @@ function adminStatsHTML() {
   const stat = (v, k) => `<div class="stat"><div class="v">${v ?? 0}</div><div class="k">${k}</div></div>`;
   const estado = (r) => r.entrado ? "🟢 dentro" : (r.autorizado ? "🟡 invitado" : "⚪ no socio");
   const segRows = seg.length ? seg.map((r) => `<div class="row">
-      <div class="who"><div class="nm">${r.nombre}</div>
+      <div class="who"><div class="nm">${esc(r.nombre)}</div>
         <div class="sub"><span>${estado(r)} · ${fmt(r.puntos)} pts · sem ${fmt(r.pl_semana)}${r.visitas ? " · 👁️ " + r.visitas : ""}${r.ultima_visita ? " · " + hace(r.ultima_visita) : ""}</span></div></div>
     </div>`).join("") : `<p class="hint">Sin datos.</p>`;
   // Indicador de sincronización de Strava: verde si el último recálculo es reciente.
@@ -1188,15 +1205,15 @@ function adminActsHTML(inputStyle) {
     const km = Number(a.km) || 0, min = Number(a.min) || 0;
     const det = [km > 0 ? `${fmt(km)} km` : null, min > 0 ? `${fmt(min)} min` : null].filter(Boolean).join(" · ");
     const s = `${a.atleta_nombre || ""} ${a.nombre || ""} ${a.deporte || ""}`.toLowerCase();
-    return `<div class="row act-row" data-s="${s.replace(/"/g, "")}">
-      <div class="who"><div class="nm">${emojiDeporte(a.deporte)} ${a.atleta_nombre || "—"}</div>
-        <div class="sub"><span>${a.nombre || a.deporte || "Entreno"}${det ? " · " + det : ""}</span></div></div>
+    return `<div class="row act-row" data-s="${esc(s)}">
+      <div class="who"><div class="nm">${emojiDeporte(a.deporte)} ${esc(a.atleta_nombre) || "—"}</div>
+        <div class="sub"><span>${esc(a.nombre || a.deporte || "Entreno")}${det ? " · " + det : ""}</span></div></div>
       <div class="cofre"><small>${fechaCorta(a.fecha_actividad || a.capturado_en)}${a.fuente === "personal" ? " ✓" : ""}</small></div>
     </div>`;
   }).join("");
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🗂️ Actividades sincronizadas (<span id="adm-act-count">${adminActs.length}</span>)</h2>
-    <input id="adm-act-buscar" type="text" placeholder="Buscar atleta / deporte…" value="${adminActFiltro}" style="${inputStyle}" />
+    <input id="adm-act-buscar" type="text" placeholder="Buscar atleta / deporte…" value="${esc(adminActFiltro)}" style="${inputStyle}" />
     ${rows || `<p class="hint">Sin actividades.</p>`}
     <p class="hint" style="margin:8px 0 0">Se muestran las últimas 500 sincronizadas (más recientes primero).</p>
   </div>`;

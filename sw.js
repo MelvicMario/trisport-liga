@@ -1,5 +1,5 @@
 // Service worker mínimo para que la app sea instalable y funcione offline.
-const CACHE = "trisport-liga-v51";
+const CACHE = "trisport-liga-v52";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,6 +27,9 @@ self.addEventListener("activate", (e) => {
 // respaldo offline. Evita servir HTML/JS viejos.
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // Solo los ficheros de la propia app. Las respuestas de Supabase (datos de socios) y de
+  // terceros no se guardan en el movil: pasan directas a la red.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
