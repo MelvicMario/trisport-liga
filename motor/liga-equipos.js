@@ -25,12 +25,13 @@ export const NORMAS = {
 };
 
 // Mismo orden que el reparto en serpiente (equipo 1 = Getafe Victorious). Perales
-// Grenadiers se deshizo el 21/11 y sus cuatro pasaron a otros equipos.
+// Grenadiers se deshizo el 21/11 y sus cuatro pasaron a otros equipos. Ese mismo dia
+// Buenavista Premier Tech se fusiono con Sector III Deceuninck y se reequilibro por
+// horas de Strava: quedan 5 equipos de 4 a 7.
 export const EQUIPOS = [
   "Getafe Victorious",
   "Alhóndiga Quick-Step",
   "Bercial-Trek",
-  "Buenavista Premier Tech",
   "Sector III Deceuninck",
   "Team Juan de la Cierva",
 ];
@@ -154,7 +155,7 @@ export function calcularLiga({ atletas = [], plantillas = [], dias = [], hoy, N 
   individual.forEach((p, i) => { p.puesto = i + 1; });
 
   // Equipos: la nota de la semana es la media de sus miembros (individual + plus).
-  // Quien no tiene Strava conectado cuenta como 0: la media es sobre todos los del equipo (4 o 5).
+  // Quien no tiene Strava conectado cuenta como 0: la media es sobre todos los del equipo (de 4 a 7).
   const nombresEq = [...new Set([...EQUIPOS, ...plantillas.map((p) => p.equipo)])]
     .filter((e) => plantillas.some((p) => p.equipo === e));
   const equipos = nombresEq.map((nombre) => {

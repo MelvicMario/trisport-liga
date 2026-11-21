@@ -181,9 +181,9 @@ export function vistaNormasLiga(N) {
     </tbody></table></div>
 
   <h2 class="section">El equipo</h2>
-  <div class="card" style="line-height:1.7">Seis equipos de cuatro o cinco. La nota del equipo cada
+  <div class="card" style="line-height:1.7">Cinco equipos, de cuatro a siete. La nota del equipo cada
     semana es la <b>media de sus miembros</b>: quien no entrena, cuenta cero. Así un equipo
-    de cinco no gana por tener más gente.
+    grande no gana por tener más gente.
     Lo que pasa de tus topes (los días 6 y 7, y el volumen por encima de
     ${N.VOL_TOPE * N.MIN_POR_PUNTO / 60} horas) no te suma a ti, pero <b>sí a tu equipo</b>,
     hasta ${N.PLUS_TOPE} puntos por persona y semana.</div>
