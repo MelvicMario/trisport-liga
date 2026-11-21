@@ -58,7 +58,7 @@ const STRAVA_STATE_KEY = "trisport_strava_state";
 /** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const APP_VERSION = "v54"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v55"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -974,7 +974,7 @@ function renderAdmin() {
       <button data-atab="config"${adminTab === "config" ? ' class="active"' : ""}>⚙️ Configuración</button>
     </div>`;
 
-  const panelHTML = `${adminStatsHTML()}${conexionesHTML()}${adminAtletaHTML(inputStyle)}${adminLogHTML()}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
+  const panelHTML = `${adminStatsHTML()}${conexionesHTML()}${adminAtletaHTML(inputStyle)}${adminDupHTML()}${adminActsHTML(inputStyle)}`;
 
   const configHTML = `
     <div class="card">
@@ -1184,18 +1184,19 @@ function adminStatsHTML() {
       <div class="who"><div class="nm">${esc(r.nombre)}</div>
         <div class="sub"><span>${estado(r)} · ${fmt(r.puntos)} pts · sem ${fmt(r.pl_semana)}${r.visitas ? " · 👁️ " + r.visitas : ""}${r.ultima_visita ? " · " + hace(r.ultima_visita) : ""}</span></div></div>
     </div>`).join("") : `<p class="hint">Sin datos.</p>`;
-  // Indicador de sincronización de Strava: verde si el último recálculo es reciente.
-  const rec = s.ultimo_recalculo ? new Date(s.ultimo_recalculo) : null;
+  // Indicador de Strava: verde si ha entrado algún entreno por webhook en las últimas 24 h.
+  // (Antes miraba estado_atleta, el recálculo de la liga individual, parado desde agosto.)
+  const rec = s.ultima_sync ? new Date(s.ultima_sync) : null;
   const minsRec = rec ? Math.round((Date.now() - rec.getTime()) / 60000) : null;
-  const syncOk = minsRec != null && minsRec <= 180; // cron horario best-effort; margen 3h para no dar falsas alarmas
+  const syncOk = minsRec != null && minsRec <= 1440; // por webhook: solo llega algo cuando alguien entrena
   const syncColor = syncOk ? "var(--ok)" : "var(--orange)";
-  const syncTxt = rec ? hace(s.ultimo_recalculo) : "—";
+  const syncTxt = rec ? hace(s.ultima_sync) : "—";
   return `<div class="card">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="width:12px;height:12px;border-radius:50%;background:${syncColor};box-shadow:0 0 8px ${syncColor};flex:0 0 auto"></span>
       <div style="flex:1">
         <div style="font-weight:800">Strava ${syncOk ? "sincronizado ✅" : "sin sincronizar hace rato ⚠️"}</div>
-        <div class="hint">Último recálculo OK: <b>${syncTxt}</b>${minsRec != null ? ` (${minsRec} min)` : ""}</div>
+        <div class="hint">Último entreno recibido: <b>${syncTxt}</b>${minsRec != null ? ` (${minsRec} min)` : ""}</div>
       </div>
     </div>
   </div>
