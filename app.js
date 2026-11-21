@@ -1,4 +1,4 @@
-// TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
+﻿// TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, STRAVA_CLIENT_ID } from "./config.js";
 import { cargarVuelta, INICIO_VUELTA } from "./vuelta-datos.js";
@@ -58,7 +58,7 @@ const STRAVA_STATE_KEY = "trisport_strava_state";
 /** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const APP_VERSION = "v53"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v54"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -297,10 +297,9 @@ function stravaHTML() {
   const lleno = !!(cupoStrava && cupoStrava.libres <= 0);
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔗 Conecta tu Strava</h2>
-    <p class="hint" style="margin-top:0">Sin conectar, la liga solo ve tus actividades por el feed
-      del club, que <b>no dice qué día entrenaste</b>: cuentan el día en que las detectamos. Si subes
-      tarde o metes la actividad a mano, se te juntan dos entrenos en un día. Conectando tu Strava
-      leemos la fecha real y recolocamos también los entrenos que ya tienes.</p>
+    <p class="hint" style="margin-top:0">En la liga <b>solo cuentan los entrenos de tu Strava
+      conectado</b> a la app. Sin conectar, sumas 0 y tu equipo te cuenta como cero. Al conectar
+      leemos la fecha real de cada entreno, también los que ya tienes de la liga.</p>
     ${lleno ? `<p class="hint" style="margin:10px 0 0;padding:10px 12px;border-radius:8px;
         background:rgba(244,122,32,.14);border:1px solid rgba(244,122,32,.45)">
         <b>Cupo completo (${cupoStrava.conectados}/${cupoStrava.cupo}).</b> Strava limita cuántos
