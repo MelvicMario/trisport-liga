@@ -5,6 +5,9 @@ import { cargarVuelta, INICIO_VUELTA } from "./vuelta-datos.js";
 import { vistaVuelta, vistaMiCarrera, vistaClasificacion, vistaReglamento } from "./vuelta-ui.js";
 import { PILARES } from "./motor/liga.js";
 import { TERRENOS } from "./motor/vuelta.js";
+import { cargarLiga } from "./liga-datos.js";
+import { vistaLigaPortada, vistaMiLiga, vistaClasifLiga, vistaNormasLiga } from "./liga-ui.js";
+import { NORMAS as NORMAS_LIGA } from "./motor/liga-equipos.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -39,6 +42,10 @@ let etapaSel = null; // etapa que se esta mirando (por defecto, la ultima)
 // que es una prueba. El lunes 8 se pone a false: entonces manda INICIO_VUELTA y la
 // temporada arranca de cero. Un solo interruptor.
 const PRETEMPORADA = true;
+// Liga por equipos (desde el 23/11/2026). true = las cuatro pantallas pasan a la liga
+// nueva y la Vuelta deja de pintarse. false = todo sigue como en la Vuelta.
+const LIGA_EQUIPOS = true;
+let LIGA = null; // resultado de calcularLiga
 let miStrava = null; // {conectado, nombre_strava, ultima_sync, actividades} del socio actual
 let cupoStrava = null; // {conectados, cupo, libres}: Strava solo permite 10 conectados
 let pendingStravaCode = null; // código OAuth que Strava devuelve al volver a la app
@@ -51,7 +58,7 @@ const STRAVA_STATE_KEY = "trisport_strava_state";
 /** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const APP_VERSION = "v52"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v53"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
@@ -164,8 +171,8 @@ async function afterLogin() {
   // Si algo falla al pintar, que no impida entrar: la sesion es lo primero. Un bug de
   // render dejaba al socio en la pantalla de login como si no estuviera autorizado.
   try { await loadData(); } catch (e) { console.error("loadData:", e); }
-  await cargarLaVuelta();
-  try { renderNoticias(); renderBase(); renderRank(); renderReglamento(); }
+  if (LIGA_EQUIPOS) await cargarLaLiga(); else await cargarLaVuelta();
+  try { renderNoticias(); renderBase(); renderRank($("#rankSeg .active")?.dataset.mode); renderReglamento(); }
   catch (e) { console.error("render:", e); }
 }
 
@@ -341,6 +348,13 @@ function wireStravaLogo() {
 
 // ---------- Pantallas de La Vuelta ----------
 function renderNoticias() {
+  if (LIGA_EQUIPOS) {
+    const aviso = $("#avisoPruebas");
+    if (aviso) aviso.innerHTML = "";
+    const c = $("#vueltaHome");
+    if (c) c.innerHTML = vistaLigaPortada(LIGA);
+    return;
+  }
   const aviso = $("#avisoPruebas");
   if (aviso) aviso.innerHTML = PRETEMPORADA ? `<div class="vPruebas">
     <b>Pretemporada.</b> Esto es una prueba con los datos que ya hay: sirve para ver el
@@ -354,7 +368,8 @@ function renderBase() {
   const c = $("#baseContent");
   if (!c) return;
   const miNombre = (clasificacion.find((x) => x.atleta_key === myAtletaKey) || {}).nombre;
-  c.innerHTML = vistaMiCarrera(VUELTA, miNombre) + stravaHTML();
+  c.innerHTML = (LIGA_EQUIPOS ? vistaMiLiga(LIGA, myAtletaKey) : vistaMiCarrera(VUELTA, miNombre))
+    + stravaHTML();
   $("#stravaOn")?.addEventListener("click", (e) => { e.preventDefault(); conectarStrava(); });
   $("#stravaOff")?.addEventListener("click", desconectarStrava);
   wireStravaLogo();
@@ -362,12 +377,23 @@ function renderBase() {
 
 function renderRank(mode = "general") {
   const c = $("#rankList");
-  if (c) c.innerHTML = vistaClasificacion(VUELTA, mode, etapaSel);
+  if (!c) return;
+  c.innerHTML = LIGA_EQUIPOS ? vistaClasifLiga(LIGA, mode === "equipos" ? "equipos" : "individual")
+    : vistaClasificacion(VUELTA, mode, etapaSel);
 }
 
 function renderReglamento() {
   const c = $("#reglamento");
-  if (c) c.innerHTML = vistaReglamento(PILARES, TERRENOS);
+  if (c) c.innerHTML = LIGA_EQUIPOS ? vistaNormasLiga(NORMAS_LIGA) : vistaReglamento(PILARES, TERRENOS);
+}
+
+async function cargarLaLiga() {
+  try {
+    LIGA = await cargarLiga(sb);
+  } catch (e) {
+    LIGA = null;
+    console.error("No se pudo montar la liga:", e.message);
+  }
 }
 
 async function cargarLaVuelta() {
