@@ -1,4 +1,4 @@
-﻿// TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
+// TriSport Liga — app conectada a Supabase (M4.1: login + clasificación y castillo reales).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, STRAVA_CLIENT_ID } from "./config.js";
 import { cargarVuelta, INICIO_VUELTA } from "./vuelta-datos.js";
