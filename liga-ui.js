@@ -163,21 +163,26 @@ export function vistaClasifLiga(L, modo = "equipos") {
 }
 
 /** Normas, pintadas desde los parámetros reales del motor. */
-export function vistaNormasLiga(N) {
+export function vistaNormasLiga(N, L = null, miKey = null) {
+  // Mi semana en curso, para pintar debajo de cada concepto lo que llevo contra el máximo.
+  const yo = L && miKey ? L.individual.find((p) => p.key === miKey) : null;
+  const s = yo && L.actual >= 0 ? yo.semanas[L.actual] : null;
+  const barra = (v, max) => s ? `<span class="vBar"><i style="width:${Math.min(100, Math.round(100 * v / max))}%"></i></span>
+    <span class="vBarN">llevas ${v} de ${max}</span>` : "";
   const filas = [
     ["Días activos", `${N.PTS_DIA} por día con ${N.MIN_DIA} minutos o más, hasta ${N.DIAS_TOPE} días.
-      Varios entrenos el mismo día cuentan como un día.`, N.DIAS_TOPE * N.PTS_DIA],
-    ["Semana cumplida", `+${N.BONUS_SEMANA} si la semana tiene ${N.OBJETIVO_DIAS} días o más`, N.BONUS_SEMANA],
+      Varios entrenos el mismo día cuentan como un día.`, N.DIAS_TOPE * N.PTS_DIA, s?.ptsDias],
+    ["Semana cumplida", `+${N.BONUS_SEMANA} si la semana tiene ${N.OBJETIVO_DIAS} días o más`, N.BONUS_SEMANA, s?.bonus],
     ["Volumen", `1 punto por cada ${N.MIN_POR_PUNTO} minutos de la semana, hasta ${N.VOL_TOPE}
-      (${N.VOL_TOPE * N.MIN_POR_PUNTO / 60} horas)`, N.VOL_TOPE],
+      (${N.VOL_TOPE * N.MIN_POR_PUNTO / 60} horas)`, N.VOL_TOPE, s?.volumen],
   ];
   return `
   <h2 class="section" style="margin-top:0">Tu semana</h2>
   <div class="tablabox"><table class="vTabla">
     <thead><tr><th></th><th>Concepto</th><th>Máx</th></tr></thead>
-    <tbody>${filas.map(([t, q, max]) => `<tr><td></td>
-      <td><b>${t}</b><span class="sub">${q}</span></td><td class="pts">${max}</td></tr>`).join("")}
-      <tr><td></td><td><b>Total de una semana</b></td><td class="pts">${maxIndividual(N)}</td></tr>
+    <tbody>${filas.map(([t, q, max, v]) => `<tr><td></td>
+      <td><b>${t}</b><span class="sub">${q}</span>${barra(v, max)}</td><td class="pts">${max}</td></tr>`).join("")}
+      <tr><td></td><td><b>Total de una semana</b>${barra(s?.individual, maxIndividual(N))}</td><td class="pts">${maxIndividual(N)}</td></tr>
     </tbody></table></div>
 
   <h2 class="section">El equipo</h2>
@@ -185,7 +190,8 @@ export function vistaNormasLiga(N) {
     semana es la <b>suma de sus miembros</b>: quien no entrena, no suma.
     Lo que pasa de tus topes (los días 6 y 7, y el volumen por encima de
     ${N.VOL_TOPE * N.MIN_POR_PUNTO / 60} horas) no te suma a ti, pero <b>sí a tu equipo</b>,
-    hasta ${N.PLUS_TOPE} puntos por persona y semana.</div>
+    hasta ${N.PLUS_TOPE} puntos por persona y semana.
+    ${s ? `<div style="margin-top:6px"><b>Tu extra esta semana</b>${barra(s.plus, N.PLUS_TOPE)}</div>` : ""}</div>
 
   <h2 class="section">Los maillots</h2>
   <div class="card"><ul style="margin:0;padding-left:18px;line-height:1.8">

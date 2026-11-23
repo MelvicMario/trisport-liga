@@ -36,6 +36,9 @@
 .vGap{margin-top:14px;padding:12px 14px;border-radius:9px;background:#3A1420;
   border:1px solid rgba(215,38,61,.5);color:#FFE9EC;font-size:14.5px}
 .vGap b{font-weight:800}
+.vBar{display:block;height:8px;margin-top:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.vBar i{display:block;height:100%;border-radius:4px;background:#F47A20}
+.vBarN{display:block;margin-top:3px;font-size:12px;opacity:.75}
 .vMini{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:14px}
 .vMini i{flex:1;background:linear-gradient(180deg,#F47A20,rgba(244,122,32,.25));
   border-radius:2px 2px 0 0;min-height:2px}

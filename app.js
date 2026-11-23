@@ -384,7 +384,7 @@ function renderRank(mode = "general") {
 
 function renderReglamento() {
   const c = $("#reglamento");
-  if (c) c.innerHTML = LIGA_EQUIPOS ? vistaNormasLiga(NORMAS_LIGA) : vistaReglamento(PILARES, TERRENOS);
+  if (c) c.innerHTML = LIGA_EQUIPOS ? vistaNormasLiga(NORMAS_LIGA, LIGA, myAtletaKey) : vistaReglamento(PILARES, TERRENOS);
 }
 
 async function cargarLaLiga() {
