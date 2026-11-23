@@ -58,7 +58,7 @@ const STRAVA_STATE_KEY = "trisport_strava_state";
 /** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const APP_VERSION = "v59"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v60"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)

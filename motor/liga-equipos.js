@@ -111,7 +111,7 @@ export function calcularLiga({ atletas = [], plantillas = [], dias = [], hoy, N 
   const idxSemana = new Map(jugadas.map((s, i) => [s.semana, i]));
   const actual = jugadas.length ? jugadas.length - 1 : -1;
 
-  // Solo socios de alta. Los de baja dejan de puntuar y salen de la media de su equipo.
+  // Solo socios de alta. Los de baja dejan de puntuar y no suman a su equipo.
   const activos = atletas.filter((a) => a.activo !== false);
   const porNombre = new Map(activos.map((a) => [a.nombre, a]));
 
@@ -154,14 +154,14 @@ export function calcularLiga({ atletas = [], plantillas = [], dias = [], hoy, N 
   const individual = [...personas].sort(orden);
   individual.forEach((p, i) => { p.puesto = i + 1; });
 
-  // Equipos: la nota de la semana es la media de sus miembros (individual + plus).
-  // Quien no tiene Strava conectado cuenta como 0: la media es sobre todos los del equipo (de 5 a 6).
+  // Equipos: la nota de la semana es la SUMA de sus miembros (individual + plus).
+  // La media se quito el 23/11 (Victor): las plantillas aun cambian. Si se reequilibra, sera aparte.
   const nombresEq = [...new Set([...EQUIPOS, ...plantillas.map((p) => p.equipo)])]
     .filter((e) => plantillas.some((p) => p.equipo === e));
   const equipos = nombresEq.map((nombre) => {
     const miembros = personas.filter((p) => p.equipo === nombre);
-    const porSemana = jugadas.map((_, i) => miembros.length
-      ? r1(miembros.reduce((s, m) => s + m.semanas[i].paraEquipo, 0) / miembros.length) : 0);
+    const porSemana = jugadas.map((_, i) =>
+      r1(miembros.reduce((s, m) => s + m.semanas[i].paraEquipo, 0)));
     return {
       nombre,
       numero: EQUIPOS.indexOf(nombre) + 1,

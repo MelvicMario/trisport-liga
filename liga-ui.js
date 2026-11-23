@@ -66,7 +66,7 @@ export function vistaLigaPortada(L) {
   if (!L) return vacio();
   return cabecera(L) + bloqueMaillots(L) + `<h2 class="section">Clasificación por equipos</h2>` +
     tablaEquipos(L, { conMiembros: false }) +
-    `<p class="hint">La nota del equipo es la media de sus miembros. Si faltas, se nota.</p>` +
+    `<p class="hint">La nota del equipo es la suma de sus miembros. Si faltas, se nota.</p>` +
     marcaStrava();
 }
 
@@ -141,7 +141,7 @@ export function vistaMiLiga(L, miKey) {
       <span></span><span>${esc(m.nombre)}${m.semana ? ` <span class="dim">· ${m.semana.dias} días</span>` : ""}</span>
       <span class="st">${m.semana ? m.semana.paraEquipo : 0}</span></div>`).join("")}
     <p class="hint" style="margin:8px 0 0">Puntos de cada uno esta semana, con su extra.
-      El equipo puntúa la media de todos.</p>
+      El equipo puntúa la suma de todos.</p>
   </div>` : ""}` + marcaStrava();
 }
 
@@ -182,8 +182,7 @@ export function vistaNormasLiga(N) {
 
   <h2 class="section">El equipo</h2>
   <div class="card" style="line-height:1.7">Cinco equipos, de cinco a seis. La nota del equipo cada
-    semana es la <b>media de sus miembros</b>: quien no entrena, cuenta cero. Así un equipo
-    grande no gana por tener más gente.
+    semana es la <b>suma de sus miembros</b>: quien no entrena, no suma.
     Lo que pasa de tus topes (los días 6 y 7, y el volumen por encima de
     ${N.VOL_TOPE * N.MIN_POR_PUNTO / 60} horas) no te suma a ti, pero <b>sí a tu equipo</b>,
     hasta ${N.PLUS_TOPE} puntos por persona y semana.</div>
@@ -200,7 +199,7 @@ export function vistaNormasLiga(N) {
     <li>${N.SEMANAS} semanas, de lunes a domingo. Todos empezamos a cero.</li>
     <li>Empate: gana quien tenga más semanas con el +${N.BONUS_SEMANA}; si sigue, más días activos.</li>
     <li>Solo cuentan los entrenos de Strava <b>conectado a la app</b>.</li>
-    <li>Si entras tarde, puntúas desde que entras. Si te das de baja, sales de la media de tu equipo.</li>
+    <li>Si entras tarde, puntúas desde que entras. Si te das de baja, dejas de sumar a tu equipo.</li>
   </ul></div>`;
 }
 
