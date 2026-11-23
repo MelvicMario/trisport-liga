@@ -58,13 +58,14 @@ const STRAVA_STATE_KEY = "trisport_strava_state";
 /** Escapa texto que viene de Strava o de la BD antes de meterlo en innerHTML (anti-XSS). */
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const APP_VERSION = "v60"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
+const APP_VERSION = "v61"; // versión visible (subir junto al CACHE del sw.js en cada deploy)
 const SEASON_START = "2026-06-01"; // inicio de temporada: lo de mayo (aparcado) no se muestra ni cuenta
 let adminEventos = null; // registro de acciones (piques/escudos) para el panel admin
 let adminDuplicados = null; // duplicados eliminados por el sync (panel admin)
 let adminConexiones = null; // quien ha conectado su Strava (RPC conexiones_strava, solo admin)
 let adminDesgloses = {};   // atleta_key -> {desglose, puntos_base, ajuste_piques} (inspector admin)
 let adminAtletaSel = "";   // atleta seleccionado en el inspector
+let adminSemanaSel = "";   // semana ISO elegida en el inspector ("" = la actual o la última con datos)
 
 boot();
 
@@ -1030,7 +1031,8 @@ function renderAdmin() {
   $("#adm-refresh")?.addEventListener("click", () => {
     adminPanel = null; adminActs = null; adminEventos = null; adminDuplicados = null; adminConexiones = null; adminCargando = true; loadAdminPanel();
   });
-  $("#adm-atleta-sel")?.addEventListener("change", (e) => { adminAtletaSel = e.target.value; renderAdmin(); });
+  $("#adm-atleta-sel")?.addEventListener("change", (e) => { adminAtletaSel = e.target.value; adminSemanaSel = ""; renderAdmin(); });
+  $("#adm-semana-sel")?.addEventListener("change", (e) => { adminSemanaSel = e.target.value; renderAdmin(); });
   const buscador = $("#adm-act-buscar");
   if (buscador) buscador.addEventListener("input", (e) => {
     adminActFiltro = e.target.value;
@@ -1091,8 +1093,21 @@ function adminAtletaHTML(inputStyle) {
     `<option value="${a.atleta_key}"${a.atleta_key === adminAtletaSel ? " selected" : ""}>${esc(a.nombre)}</option>`).join("");
   let detalle = `<p class="hint">Elige un atleta para ver su desglose de la semana (para responder dudas).</p>`;
   const r = adminDesgloses[adminAtletaSel];
+  let selSemana = "";
   if (adminAtletaSel && r) {
-    const d = r.desglose || {};
+    // Histórico por semanas (desglose.semanas, lo escribe el sync). Por defecto la actual;
+    // si aún no tiene datos (p. ej. el lunes), la última semana con datos.
+    const dg = r.desglose || {};
+    const sems = dg.semanas || {};
+    const claves = Object.keys(sems).sort();
+    const actual = dg.semana_iso || "";
+    const sem = adminSemanaSel && sems[adminSemanaSel] ? adminSemanaSel
+      : (sems[actual] ? actual : (claves[claves.length - 1] || ""));
+    const d = sem ? sems[sem] : dg;
+    if (claves.length) {
+      selSemana = `<select id="adm-semana-sel" style="${inputStyle};margin-top:8px">${claves.slice().reverse().map((w) =>
+        `<option value="${w}"${w === sem ? " selected" : ""}>Semana ${w}${w === actual ? " (actual)" : ""}</option>`).join("")}</select>`;
+    }
     const base = Math.round(d.base || 0);
     const baseDias = (d.dias || 0) * 12;
     const extra = base - baseDias;
@@ -1103,13 +1118,14 @@ function adminAtletaHTML(inputStyle) {
       ${fila("🔀 Variedad (2+ deportes)", d.variedad)}
       ${fila("🏆 Semana cumplida (3+ días)", d.semana)}
       ${fila("👥 Salida de club", d.grupo)}
-      <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px"><span style="font-weight:800">Total esta semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total || 0)}</span></div>
+      <div class="sub" style="justify-content:space-between;display:flex;border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:8px"><span style="font-weight:800">Total de la semana</span><span style="font-weight:900;font-size:16px">${Math.round(d.total || 0)}</span></div>
       <div class="sub" style="justify-content:space-between;display:flex"><span class="hint">Total temporada (con piques)</span><span style="font-weight:700">${total}</span></div>
       ${detalleDiasHTML(d)}`;
   }
   return `<div class="card">
     <h2 class="section" style="margin-top:0">🔎 Puntos de un atleta</h2>
     <select id="adm-atleta-sel" style="${inputStyle}"><option value="">— elige atleta —</option>${opts}</select>
+    ${selSemana}
     ${detalle}
   </div>`;
 }
